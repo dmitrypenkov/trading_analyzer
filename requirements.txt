@@ -1,0 +1,21 @@
+# Trading Analyzer v6.0 - Dependencies
+
+# Core framework
+streamlit  # Latest version recommended
+
+# Data processing
+pandas>=2.1.0
+numpy>=1.26.0
+
+# Visualization
+plotly>=5.18.0
+
+# Optional: Excel export (uncomment if needed)
+# openpyxl>=3.1.0
+
+# Development dependencies (uncomment for development)
+# pytest>=7.0.0
+# black>=23.0.0
+# flake8>=6.0.0
+
+xlsxwriter
