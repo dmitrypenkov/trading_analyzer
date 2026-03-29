@@ -748,7 +748,7 @@ elif section == "⚙️ Настройки":
             # Выбор режима расчёта TP/SL
             tp_sl_mode = st.radio(
                 "Режим расчёта TP/SL",
-                ["Стандартный (множители x блок)", "Base SL + RR"],
+                ["Base SL + RR", "Стандартный (множители x блок)"],
                 horizontal=True,
                 key="tp_sl_mode"
             )
