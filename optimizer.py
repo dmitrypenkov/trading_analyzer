@@ -874,3 +874,126 @@ class TradingOptimizer:
         """
         # Для обеих целей используем максимизацию
         return lambda new, best: new > best
+
+    def optimize_base_sl_rr(self, settings: Dict,
+                            sl_mult_range: Tuple[float, float, float],
+                            rr_range: Tuple[float, float, float],
+                            target_r: float = 5.0,
+                            progress_callback: Optional[Callable] = None,
+                            use_parallel: bool = False) -> Dict:
+        """
+        Оптимизация параметров Base SL + RR по метрике R-циклов.
+
+        Args:
+            settings: Базовые настройки стратегии
+            sl_mult_range: (min, max, step) для SL множителя
+            rr_range: (min, max, step) для Risk-Reward
+            target_r: Порог R-цикла
+            progress_callback: Функция обратного вызова (percent)
+            use_parallel: Использовать параллельную обработку
+
+        Returns:
+            Словарь с результатами оптимизации
+        """
+        import time as _time
+
+        start_time = _time.time()
+
+        # Генерация комбинаций
+        sl_values = []
+        v = sl_mult_range[0]
+        while v <= sl_mult_range[1] + 1e-9:
+            sl_values.append(round(v, 4))
+            v += sl_mult_range[2]
+
+        rr_values = []
+        v = rr_range[0]
+        while v <= rr_range[1] + 1e-9:
+            rr_values.append(round(v, 4))
+            v += rr_range[2]
+
+        combinations = list(itertools.product(sl_values, rr_values))
+        total = len(combinations)
+        logger.info(f"Оптимизация Base SL + RR: {total} комбинаций, target_r={target_r}")
+
+        results = []
+        best_result = None
+        best_score = -1
+
+        for idx, (sl_mult, rr) in enumerate(combinations):
+            # Копия настроек
+            s = deepcopy(settings)
+            s['use_base_sl_mode'] = True
+            s['sl_multiplier'] = sl_mult
+            s['rr_ratio'] = rr
+
+            try:
+                # Анализ периода
+                analysis = self.analyzer.analyze_period(
+                    s['start_date'], s['end_date'], s
+                )
+
+                # Подготовка trades с R
+                daily_trades_df = self.report_generator.prepare_daily_trades(
+                    analysis['results'],
+                    s.get('tp_coefficient', 1.0),
+                    s.get('sl_slippage_coefficient', 1.0),
+                    s.get('commission_rate', 0.0)
+                )
+
+                trades_list = daily_trades_df.to_dict('records') if not daily_trades_df.empty else []
+
+                # R-циклы
+                cycles_info = self.r_calculator.calculate_r_cycles(trades_list, target_r)
+
+                # Доп. статистика
+                total_r = sum(t.get('r_result', 0) for t in trades_list if t.get('result') in ('TP', 'SL', 'BE'))
+                executed = len([t for t in trades_list if t.get('result') in ('TP', 'SL', 'BE')])
+                tp_count = len([t for t in trades_list if t.get('result') == 'TP'])
+                win_rate = round(tp_count / executed * 100, 1) if executed > 0 else 0.0
+
+                entry = {
+                    'sl_multiplier': sl_mult,
+                    'rr_ratio': rr,
+                    'num_cycles': cycles_info['num_cycles'],
+                    'win_cycles': cycles_info['win_cycles'],
+                    'loss_cycles': cycles_info['loss_cycles'],
+                    'win_cycle_rate': cycles_info['win_cycle_rate'],
+                    'avg_trades_per_cycle': cycles_info['avg_trades_per_cycle'],
+                    'total_trades': executed,
+                    'total_r': round(total_r, 2),
+                    'win_rate': win_rate,
+                    'incomplete_r': cycles_info['incomplete_r'],
+                }
+                results.append(entry)
+
+                # Лучший результат
+                score = cycles_info['num_cycles']
+                if score > best_score:
+                    best_score = score
+                    best_result = entry
+
+            except Exception as e:
+                logger.warning(f"Ошибка sl_mult={sl_mult}, rr={rr}: {e}")
+
+            # Прогресс
+            if progress_callback and idx % max(1, total // 50) == 0:
+                progress_callback(int((idx + 1) / total * 100))
+
+        if progress_callback:
+            progress_callback(100)
+
+        elapsed = _time.time() - start_time
+
+        # Сортировка по num_cycles DESC, потом win_cycle_rate DESC
+        results.sort(key=lambda x: (x['num_cycles'], x['win_cycle_rate']), reverse=True)
+
+        return {
+            'best': best_result,
+            'all_results': results,
+            'sl_values': sl_values,
+            'rr_values': rr_values,
+            'target_r': target_r,
+            'total_combinations': total,
+            'computation_time': round(elapsed, 1)
+        }

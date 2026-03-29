@@ -1771,556 +1771,212 @@ elif section == "📈 Результаты":
 
 # НОВЫЙ РАЗДЕЛ: Оптимизация
 elif section == "🔧 Оптимизация":
-    st.header("🔧 Оптимизация параметров")
-    
+    st.header("🔧 Оптимизация параметров (Base SL + RR)")
+
     # Проверка готовности системы
     if not st.session_state.data_loaded:
         st.warning("⚠️ Сначала загрузите данные о ценах")
     elif 'current_settings' not in st.session_state:
         st.warning("⚠️ Сначала сохраните настройки в разделе Настройки")
     else:
-        # Основной интерфейс оптимизации
-        st.markdown("### 🎯 Настройки оптимизации")
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            optimization_target = st.selectbox(
-                "Цель оптимизации",
-                options=['max_total_r', 'max_r_dd_ratio', 'max_r_minus_dd'],
-                format_func=lambda x: {
-                    'max_total_r': '📈 Максимальный суммарный R',
-                    'max_r_dd_ratio': '⚖️ Баланс R / Max Drawdown (Calmar)',
-                    'max_r_minus_dd': '🛡️ R minus 2*MaxDrawdown (защитный)'
-                }[x],
-                help="Calmar = TotalR / |MaxDD|. Защитный = TotalR - 2*|MaxDD|"
-            )
-        
-        with col2:
-            use_parallel = st.checkbox(
-                "Использовать параллельную обработку",
-                value=False,
-                help="Ускоряет оптимизацию при большом количестве комбинаций (> 100)"
-            )
-        
-        st.markdown("---")
-        use_time_optimization = st.checkbox(
-            "🕐 Оптимизация времени разделения Блок/Сессия",
-            value=False,
-            help="Перебирает время разделения block_end = session_start"
+        st.markdown("### 🎯 Настройки оптимизации R-циклов")
+        st.caption("Перебор SL множитель × RR для максимизации количества R-циклов")
+
+        target_r = st.number_input(
+            "Порог R-цикла (|R|)",
+            min_value=1.0, max_value=50.0, value=5.0, step=1.0,
+            help="Цикл завершается когда накопленный R достигает +порог или -порог",
+            key="opt_target_r"
         )
-        
-        if use_time_optimization:
-            st.info("block_end и session_start = одно время (точка разделения). Перебираются все часы. Для каждого запускается полный перебор TP/SL.")
-            tcol1, tcol2, tcol3, tcol4 = st.columns(4)
-            with tcol1:
-                time_block_start = st.text_input(
-                    "Начало БЛОКА (UTC)", value="00:00",
-                    key="time_opt_block_start"
-                )
-            with tcol2:
-                time_session_end = st.text_input(
-                    "Конец СЕССИИ (UTC)", value="20:00",
-                    key="time_opt_session_end"
-                )
-            with tcol3:
-                time_split_min = st.number_input(
-                    "Разделение от (час)",
-                    min_value=1, max_value=23, value=3, step=1,
-                    key="time_opt_split_min"
-                )
-            with tcol4:
-                time_split_max = st.number_input(
-                    "Разделение до (час)",
-                    min_value=1, max_value=23, value=18, step=1,
-                    key="time_opt_split_max"
-                )
-            
-            time_from_prev_day = st.checkbox(
-                "БЛОК начнётся с предыдущего дня",
-                value=False, key="time_opt_from_prev"
-            )
-        
+
+        st.markdown("---")
         st.markdown("### 📊 Диапазоны параметров")
-        
-        # Настройка диапазона TP
-        st.markdown("**Take Profit множитель**")
-        tp_col1, tp_col2, tp_col3 = st.columns(3)
-        with tp_col1:
-            tp_min = st.number_input(
-                "Минимум TP",
-                min_value=0.1,
-                max_value=10.0,
-                value=0.5,
-                step=0.1,
-                key="opt_tp_min"
-            )
-        with tp_col2:
-            tp_max = st.number_input(
-                "Максимум TP",
-                min_value=0.1,
-                max_value=10.0,
-                value=3.0,
-                step=0.1,
-                key="opt_tp_max"
-            )
-        with tp_col3:
-            tp_step = st.number_input(
-                "Шаг TP",
-                min_value=0.05,
-                max_value=1.0,
-                value=0.1,
-                step=0.05,
-                key="opt_tp_step"
-            )
-        
-        # Настройка диапазона SL
-        st.markdown("**Stop Loss множитель**")
+
+        # SL множитель
+        st.markdown("**SL множитель (доля блока)**")
         sl_col1, sl_col2, sl_col3 = st.columns(3)
         with sl_col1:
-            sl_min = st.number_input(
-                "Минимум SL",
-                min_value=0.1,
-                max_value=10.0,
-                value=0.5,
-                step=0.1,
-                key="opt_sl_min"
-            )
+            sl_min = st.number_input("Мин SL mult", min_value=0.0, max_value=2.0, value=0.0, step=0.05, key="opt_sl_min")
         with sl_col2:
-            sl_max = st.number_input(
-                "Максимум SL",
-                min_value=0.1,
-                max_value=10.0,
-                value=2.0,
-                step=0.1,
-                key="opt_sl_max"
-            )
+            sl_max = st.number_input("Макс SL mult", min_value=0.0, max_value=2.0, value=0.5, step=0.05, key="opt_sl_max")
         with sl_col3:
-            sl_step = st.number_input(
-                "Шаг SL",
-                min_value=0.05,
-                max_value=1.0,
-                value=0.1,
-                step=0.05,
-                key="opt_sl_step"
-            )
+            sl_step = st.number_input("Шаг SL mult", min_value=0.01, max_value=0.5, value=0.05, step=0.01, key="opt_sl_step")
+
+        # RR
+        st.markdown("**Risk-Reward (RR)**")
+        rr_col1, rr_col2, rr_col3 = st.columns(3)
+        with rr_col1:
+            rr_min = st.number_input("Мин RR", min_value=0.1, max_value=10.0, value=0.5, step=0.1, key="opt_rr_min")
+        with rr_col2:
+            rr_max = st.number_input("Макс RR", min_value=0.1, max_value=10.0, value=5.0, step=0.1, key="opt_rr_max")
+        with rr_col3:
+            rr_step = st.number_input("Шаг RR", min_value=0.1, max_value=1.0, value=0.1, step=0.1, key="opt_rr_step")
         
         # Расчет количества комбинаций
-        tp_count = int((tp_max - tp_min) / tp_step) + 1
-        sl_count = int((sl_max - sl_min) / sl_step) + 1
-        total_combinations = tp_count * sl_count
-        
-        # Информация о комбинациях
-        if use_time_optimization:
-            time_points = len(range(time_split_min, time_split_max + 1))
-            total_all = total_combinations * time_points
-            st.info(f"""
-            📊 **Параметры оптимизации:**
-            - TP значений: {tp_count} | SL значений: {sl_count} | **TP/SL комбинаций: {total_combinations}**
-            - 🕐 Временных точек: {time_points} ({time_split_min}:00 — {time_split_max}:00)
-            - **Итого прогонов: {total_all}**
-            - Примерное время: {total_all * 0.5:.0f} - {total_all * 2:.0f} секунд
-            """)
-        else:
-            st.info(f"""
-            📊 **Параметры оптимизации:**
-            - TP значений: {tp_count} (от {tp_min} до {tp_max} с шагом {tp_step})
-            - SL значений: {sl_count} (от {sl_min} до {sl_max} с шагом {sl_step})
-            - **Всего комбинаций: {total_combinations}**
-            - Примерное время: {total_combinations * 0.5:.1f} - {total_combinations * 2:.1f} секунд
-            """)
+        sl_count = int((sl_max - sl_min) / sl_step) + 1 if sl_step > 0 else 1
+        rr_count = int((rr_max - rr_min) / rr_step) + 1 if rr_step > 0 else 1
+        total_combinations = sl_count * rr_count
+
+        st.info(f"""
+        📊 **Параметры оптимизации:**
+        - SL mult значений: {sl_count} (от {sl_min} до {sl_max} с шагом {sl_step})
+        - RR значений: {rr_count} (от {rr_min} до {rr_max} с шагом {rr_step})
+        - **Всего комбинаций: {total_combinations}**
+        - Порог R-цикла: ±{target_r}R
+        """)
         
         # Кнопка запуска оптимизации
-        if st.button("🚀 Запустить оптимизацию", type="primary", 
+        if st.button("🚀 Запустить оптимизацию R-циклов", type="primary",
                     disabled=st.session_state.get('optimization_running', False)):
-            
+
             st.session_state.optimization_running = True
             st.session_state.optimization_results = None
-            st.session_state.time_optimization_results = None
-            
+
             progress_bar = st.progress(0)
             status_text = st.empty()
-            
+
             def update_progress(percent):
                 progress_bar.progress(min(percent, 100) / 100)
                 status_text.text(f"Обработано: {min(percent, 100)}%")
-            
+
             try:
                 data_processor = DataProcessor(
                     st.session_state.price_data,
                     st.session_state.news_data
                 )
-                analyzer = TradingAnalyzer(data_processor)
-                r_calculator = RCalculator()
-                optimizer = TradingOptimizer(data_processor, analyzer, r_calculator)
-                
+                analyzer_inst = TradingAnalyzer(data_processor)
+                r_calculator_inst = RCalculator()
+                optimizer_inst = TradingOptimizer(data_processor, analyzer_inst, r_calculator_inst)
+
                 settings = st.session_state.current_settings.copy()
-                
+
                 for tkey in ['block_start', 'block_end', 'session_start', 'session_end']:
                     if isinstance(settings.get(tkey), str):
                         settings[tkey] = datetime.strptime(settings[tkey], '%H:%M').time()
                 for dkey in ['start_date', 'end_date']:
                     if isinstance(settings.get(dkey), str):
                         settings[dkey] = datetime.strptime(settings[dkey], '%Y-%m-%d').date()
-                
-                if use_time_optimization:
-                    with st.spinner(f"🔄 Оптимизация времени ({time_split_min}:00—{time_split_max}:00) x {total_combinations} TP/SL..."):
-                        time_results = optimizer.optimize_time_and_params(
-                            settings=settings,
-                            block_start_fixed=time_block_start,
-                            session_end_fixed=time_session_end,
-                            split_hour_min=time_split_min,
-                            split_hour_max=time_split_max,
-                            split_hour_step=1,
-                            tp_range=(tp_min, tp_max, tp_step),
-                            sl_range=(sl_min, sl_max, sl_step),
-                            optimization_target=optimization_target,
-                            from_previous_day=time_from_prev_day,
-                            progress_callback=update_progress
-                        )
-                    
-                    st.session_state.time_optimization_results = time_results
-                    st.session_state.optimization_running = False
-                    progress_bar.progress(100)
-                    status_text.text("✅ Оптимизация завершена!")
-                    st.success(f"✅ Завершено за {time_results['optimization_details']['computation_time']:.1f} сек")
-                    st.rerun()
-                else:
-                    with st.spinner(f"🔄 Оптимизация {total_combinations} комбинаций..."):
-                        optimization_results = optimizer.optimize_parameters(
-                            settings=settings,
-                            tp_range=(tp_min, tp_max, tp_step),
-                            sl_range=(sl_min, sl_max, sl_step),
-                            optimization_target=optimization_target,
-                            progress_callback=update_progress,
-                            use_parallel=use_parallel
-                        )
-                    
-                    st.session_state.optimization_results = optimization_results
-                    st.session_state.optimization_running = False
-                    st.session_state.optimizer_cache = optimizer._results_cache.copy()
-                    st.session_state.optimizer_instance = optimizer
-                    progress_bar.progress(100)
-                    status_text.text("✅ Оптимизация завершена!")
-                    st.success(f"✅ Завершено за {optimization_results['optimization_details']['computation_time']:.1f} сек")
-                    st.rerun()
-                
+
+                with st.spinner(f"🔄 Оптимизация {total_combinations} комбинаций (target ±{target_r}R)..."):
+                    opt_results = optimizer_inst.optimize_base_sl_rr(
+                        settings=settings,
+                        sl_mult_range=(sl_min, sl_max, sl_step),
+                        rr_range=(rr_min, rr_max, rr_step),
+                        target_r=target_r,
+                        progress_callback=update_progress
+                    )
+
+                st.session_state.optimization_results = opt_results
+                st.session_state.optimization_running = False
+                progress_bar.progress(1.0)
+                status_text.text("✅ Оптимизация завершена!")
+                st.success(f"✅ {opt_results['total_combinations']} комбинаций за {opt_results['computation_time']:.1f} сек")
+                st.rerun()
+
             except Exception as e:
                 st.session_state.optimization_running = False
-                st.error(f"❌ Ошибка при оптимизации: {str(e)}")
+                st.error(f"❌ Ошибка: {str(e)}")
                 import traceback
                 st.code(traceback.format_exc())
-        
-        # Результаты оптимизации ВРЕМЕНИ
-        if st.session_state.get('time_optimization_results') is not None:
-            st.markdown("---")
-            st.markdown("## 🕐 Результаты оптимизации времени")
+
+        # === РЕЗУЛЬТАТЫ ОПТИМИЗАЦИИ ===
+        if st.session_state.get('optimization_results') is not None:
+            opt_res = st.session_state.optimization_results
+            best = opt_res.get('best')
             
-            time_res = st.session_state.time_optimization_results
-            best = time_res['best_overall']
+            if best:
+                st.markdown("---")
+                st.markdown("### 🏆 Лучшая комбинация")
+                bcol1, bcol2, bcol3, bcol4 = st.columns(4)
+                with bcol1:
+                    st.metric("SL множитель", f"{best['sl_multiplier']}")
+                with bcol2:
+                    st.metric("RR", f"{best['rr_ratio']}")
+                with bcol3:
+                    st.metric("R-циклов", f"{best['num_cycles']}")
+                with bcol4:
+                    st.metric("Win rate циклов", f"{best['win_cycle_rate']}%")
+
+                bcol5, bcol6, bcol7, bcol8 = st.columns(4)
+                with bcol5:
+                    st.metric("Win / Loss", f"{best['win_cycles']} / {best['loss_cycles']}")
+                with bcol6:
+                    st.metric("Сделок/цикл", f"{best['avg_trades_per_cycle']}")
+                with bcol7:
+                    st.metric("Total R", f"{best['total_r']}")
+                with bcol8:
+                    st.metric("Win rate сделок", f"{best['win_rate']}%")
             
-            st.markdown("### 🏆 Лучшее временное окно")
-            bcol1, bcol2, bcol3, bcol4 = st.columns(4)
-            with bcol1:
-                st.metric("Блок", best['block'])
-            with bcol2:
-                st.metric("Сессия", best['session'])
-            with bcol3:
-                st.metric("Лучший TP", f"{best['best_tp']:.1f}" if best.get('best_tp') else "-")
-            with bcol4:
-                st.metric("Лучший SL", f"{best['best_sl']:.1f}" if best.get('best_sl') else "-")
-            
-            mcol1, mcol2, mcol3 = st.columns(3)
-            with mcol1:
-                st.metric("Метрика", f"{best['best_metric']:.2f}" if best.get('best_metric') else "-")
-            with mcol2:
-                st.metric("Total R", f"{best.get('best_total_r', '-')}")
-            with mcol3:
-                st.metric("Win Rate", f"{best.get('best_win_rate', '-')}%")
-            
-            st.markdown("### 📊 Все временные окна")
-            time_table_data = []
-            for tr in time_res['all_time_results']:
-                time_table_data.append({
-                    'Час': tr['split_time'],
-                    'Блок': tr['block'],
-                    'Сессия': tr['session'],
-                    'Метрика': round(tr['best_metric'], 2) if tr.get('best_metric') else 0,
-                    'TP': tr.get('best_tp'),
-                    'SL': tr.get('best_sl'),
-                    'Total R': tr.get('best_total_r', '-'),
-                    'Сделок': tr.get('best_trades', '-'),
-                    'Win%': tr.get('best_win_rate', '-')
-                })
-            
-            time_df = pd.DataFrame(time_table_data)
-            st.dataframe(time_df, use_container_width=True)
-            
-            if len(time_table_data) > 1:
-                fig = go.Figure()
-                fig.add_trace(go.Bar(
-                    x=[t['Час'] for t in time_table_data],
-                    y=[t['Метрика'] for t in time_table_data],
-                    marker_color=['gold' if t['Час'] == best['split_time'] else 'steelblue' for t in time_table_data]
+            # Тепловая карта
+            st.markdown("### 📊 Тепловая карта R-циклов")
+            all_res = opt_res['all_results']
+            if all_res:
+                import plotly.graph_objects as _go
+
+                # Построение тепловой карты
+                heatmap_df = pd.DataFrame(all_res)
+                pivot = heatmap_df.pivot_table(
+                    index='sl_multiplier', columns='rr_ratio', values='num_cycles', aggfunc='first'
+                )
+
+                fig = _go.Figure(data=_go.Heatmap(
+                    z=pivot.values,
+                    x=[f"{v:.1f}" for v in pivot.columns],
+                    y=[f"{v:.2f}" for v in pivot.index],
+                    colorscale='YlGn',
+                    text=pivot.values,
+                    texttemplate='%{text}',
+                    textfont={"size": 9},
+                    colorbar=dict(title="Циклов")
                 ))
+
+                if best:
+                    fig.add_trace(_go.Scatter(
+                        x=[f"{best['rr_ratio']:.1f}"],
+                        y=[f"{best['sl_multiplier']:.2f}"],
+                        mode='markers',
+                        marker=dict(size=18, color='red', symbol='star', line=dict(color='white', width=2)),
+                        name='Лучший', showlegend=True
+                    ))
+
                 fig.update_layout(
-                    title="Метрика по временным окнам",
-                    xaxis_title="Время разделения (block_end = session_start)",
-                    yaxis_title="Метрика",
-                    template="plotly_dark"
+                    title=f"R-циклы (порог ±{opt_res['target_r']}R)",
+                    xaxis_title="RR (Risk-Reward)",
+                    yaxis_title="SL множитель",
+                    height=500
                 )
                 st.plotly_chart(fig, use_container_width=True)
-            
-            with st.expander("📋 Детали"):
-                st.json(time_res['optimization_details'])
-        
-        # Отображение результатов стандартной оптимизации
-        if st.session_state.optimization_results is not None:
-            st.markdown("---")
-            st.markdown("## 📊 Результаты оптимизации")
-            
-            results = st.session_state.optimization_results
-            
-            # Лучшие параметры
-            st.markdown("### 🏆 Лучшие параметры")
-            col1, col2, col3, col4 = st.columns(4)
-            
-            with col1:
-                st.metric(
-                    "Лучший TP",
-                    f"{results['best_params']['tp_multiplier']:.2f}"
-                )
-            
-            with col2:
-                st.metric(
-                    "Лучший SL",
-                    f"{results['best_params']['sl_multiplier']:.2f}"
-                )
-            
-            with col3:
-                st.metric(
-                    "Значение метрики",
-                    f"{results['best_metric']:.2f}"
-                )
-            
-            with col4:
-                r_ratio = results['best_params']['tp_multiplier'] / results['best_params']['sl_multiplier']
-                st.metric(
-                    "R-соотношение",
-                    f"{r_ratio:.2f}"
-                )
-            
-            # Кнопка применения лучших параметров
-            if st.button("✅ Применить лучшие параметры к настройкам", type="primary"):
-                st.session_state.tp_multiplier = results['best_params']['tp_multiplier']
-                st.session_state.sl_multiplier = results['best_params']['sl_multiplier']
-                
-                # Обновляем current_settings
-                if 'current_settings' in st.session_state:
-                    st.session_state.current_settings['tp_multiplier'] = results['best_params']['tp_multiplier']
-                    st.session_state.current_settings['sl_multiplier'] = results['best_params']['sl_multiplier']
-                
-                st.success("✅ Параметры применены! Перейдите в раздел Настройки для проверки")
-            
-            # Heatmap результатов
-            st.markdown("### 🗺️ Тепловая карта результатов")
-            
-            # Создаем heatmap с plotly
-            fig = go.Figure(data=go.Heatmap(
-                z=results['results_grid'].values,
-                x=results['results_grid'].columns,
-                y=results['results_grid'].index,
-                colorscale='RdYlGn',
-                text=results['results_grid'].values.round(2),
-                texttemplate='%{text}',
-                textfont={"size": 10},
-                colorbar=dict(title=dict(text="Метрика", side="right"))
-            ))
-            
-            # Добавляем маркер для лучшей комбинации
-            best_tp = results['best_params']['tp_multiplier']
-            best_sl = results['best_params']['sl_multiplier']
-            
-            fig.add_trace(go.Scatter(
-                x=[best_tp],
-                y=[best_sl],
-                mode='markers',
-                marker=dict(
-                    size=20,
-                    color='red',
-                    symbol='star',
-                    line=dict(color='white', width=2)
-                ),
-                name='Лучший результат',
-                showlegend=True
-            ))
-            
-            fig.update_layout(
-                title="Тепловая карта результатов оптимизации",
-                xaxis_title="TP множитель",
-                yaxis_title="SL множитель",
-                height=600
+
+            # Таблица топ-20
+            st.markdown("### 📋 Топ-20 комбинаций")
+            top_data = opt_res['all_results'][:20]
+            if top_data:
+                top_df = pd.DataFrame(top_data)
+                display_cols = {
+                    'sl_multiplier': 'SL mult',
+                    'rr_ratio': 'RR',
+                    'num_cycles': 'Циклов',
+                    'win_cycles': 'Win',
+                    'loss_cycles': 'Loss',
+                    'win_cycle_rate': 'Win rate %',
+                    'avg_trades_per_cycle': 'Сделок/цикл',
+                    'total_trades': 'Всего сделок',
+                    'total_r': 'Total R',
+                    'win_rate': 'WR сделок %'
+                }
+                top_df = top_df[[c for c in display_cols if c in top_df.columns]]
+                top_df = top_df.rename(columns=display_cols)
+                st.dataframe(top_df, use_container_width=True, hide_index=True)
+
+            # Экспорт
+            st.markdown("### 💾 Экспорт")
+            csv_data = pd.DataFrame(opt_res['all_results']).to_csv(index=False)
+            st.download_button(
+                "📥 Скачать все результаты (CSV)",
+                data=csv_data,
+                file_name=f"optimization_rcycles_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                mime="text/csv"
             )
-            
-            st.plotly_chart(fig, use_container_width=True)
-            
-            # Таблица топ-10 комбинаций
-            st.markdown("### 🏅 Топ-10 комбинаций")
-            
-            # Создаем экземпляр оптимизатора для использования метода get_top_combinations
-            data_processor = DataProcessor(st.session_state.price_data, st.session_state.news_data)
-            analyzer = TradingAnalyzer(data_processor)
-            r_calculator = RCalculator()
-            optimizer = TradingOptimizer(data_processor, analyzer, r_calculator)
-            
-            top_10 = optimizer.get_top_combinations(results['results_df'], 10)
-            
-            # Форматируем для отображения
-            display_top_10 = top_10.copy()
-            display_top_10 = display_top_10.round({
-                'tp_multiplier': 2,
-                'sl_multiplier': 2,
-                'metric_value': 2,
-                'total_r': 2,
-                'win_rate': 1,
-                'r_ratio': 2
-            })
-            
-            st.dataframe(
-                display_top_10,
-                use_container_width=True,
-                hide_index=True
-            )
-            
-            # Экспорт результатов
-            st.markdown("### 💾 Экспорт результатов")
-            
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                # Экспорт в CSV
-                csv_data = results['results_df'].to_csv(index=False)
-                st.download_button(
-                    label="📥 Скачать все результаты (CSV)",
-                    data=csv_data,
-                    file_name=f"optimization_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                    mime="text/csv"
-                )
-            
-            with col2:
-                # Экспорт сетки для анализа
-                grid_csv = results['results_grid'].to_csv()
-                st.download_button(
-                    label="📥 Скачать сетку результатов (CSV)",
-                    data=grid_csv,
-                    file_name=f"optimization_grid_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                    mime="text/csv"
-                )
-            
-            # Детали оптимизации
-            with st.expander("📋 Детали оптимизации"):
-                st.json(results['optimization_details'])
-            
-            # Новый блок экспорта детальных результатов
-            st.markdown("---")
-            st.markdown("### 📁 Экспорт детальных результатов анализа")
-            st.info("💡 Экспорт создает отдельный CSV файл для каждой комбинации TP/SL с полными данными по всем сделкам")
-            
-            # Проверяем что оптимизатор создан и есть данные в кеше
-            if 'optimizer' not in st.session_state:
-                # Создаем экземпляр оптимизатора если его нет
-                data_processor = DataProcessor(st.session_state.price_data, st.session_state.news_data)
-                analyzer = TradingAnalyzer(data_processor)
-                r_calculator = RCalculator()
-                st.session_state.optimizer = TradingOptimizer(data_processor, analyzer, r_calculator)
-            
-            optimizer = st.session_state.optimizer
-            # Восстанавливаем кеш из session_state
-            if 'optimizer_cache' in st.session_state:
-                optimizer._results_cache = st.session_state.optimizer_cache
-            
-            # Проверяем количество комбинаций
-            total_combinations = len(results['results_df'])
-            
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                export_mode = st.radio(
-                    "Режим экспорта:",
-                    ["top10", "all"],
-                    format_func=lambda x: "📊 Топ-10 комбинаций" if x == "top10" else f"📈 Все комбинации ({total_combinations})",
-                    help="Выберите какие комбинации экспортировать"
-                )
-                
-                if export_mode == "all" and total_combinations > 100:
-                    st.warning(f"⚠️ Будет создано {total_combinations} файлов. Это может занять время.")
-            
-            with col2:
-                if st.button("🚀 Начать экспорт детальных результатов", type="primary"):
-                    try:
-                        # Создаем прогресс-бар
-                        export_progress = st.progress(0)
-                        export_status = st.empty()
-                        
-                        export_status.text("📂 Создание структуры папок...")
-                        
-                        # Получаем текущие настройки
-                        settings = st.session_state.current_settings.copy()
-                        
-                        # Форматируем времена для папок
-                        settings['block_start_time'] = settings.get('block_start', '00:00')
-                        settings['block_end_time'] = settings.get('block_end', '23:59')
-                        settings['session_start_time'] = settings.get('session_start', '00:00')
-                        settings['session_end_time'] = settings.get('session_end', '23:59')
-                        
-                        # Функция обновления прогресса
-                        def update_export_progress(percent):
-                            export_progress.progress(percent)
-                            export_status.text(f"📝 Экспорт файлов... {percent}%")
-                        
-                        # Запускаем экспорт
-                        export_path = optimizer.export_detailed_results(
-                            optimization_results=results,
-                            settings=settings,
-                            export_mode=export_mode,
-                            progress_callback=update_export_progress
-                        )
-                        
-                        export_progress.progress(100)
-                        export_status.empty()
-                        
-                        # Показываем результат
-                        st.success(f"✅ Экспорт завершен!")
-                        st.info(f"📁 Файлы сохранены в папку:\n`{export_path}`")
-                        
-                        # Показываем информацию о структуре
-                        with st.expander("📋 Структура экспортированных файлов"):
-                            best_tp = str(results['best_params']['tp_multiplier']).replace('.', '_')
-                            best_sl = str(results['best_params']['sl_multiplier']).replace('.', '_')
-                            st.markdown(f"""
-                            ```
-                            {export_path}/
-                            ├── export_info.txt  # Информация об экспорте
-                            └── block_XXXX-XXXX_session_XXXX-XXXX/
-                                ├── trading_analyzer_TP{best_tp}_SL{best_sl}.csv
-                                └── ... другие комбинации
-                            ```
-                            
-                            **Формат CSV файлов:**
-                            - Такой же как в разделе "Результаты"
-                            - Включает все колонки: дата, время, цены, результат, R-значение
-                            - Готов для дальнейшего анализа в Excel или Python
-                            """)
-                        
-                    except Exception as e:
-                        st.error(f"❌ Ошибка при экспорте: {str(e)}")
-                        logger.error(f"Ошибка экспорта детальных результатов: {str(e)}")
-            
-            # Информация о доступности данных
-            if hasattr(optimizer, '_results_cache') and len(optimizer._results_cache) > 0:
-                st.caption(f"✅ В кеше доступно {len(optimizer._results_cache)} комбинаций для экспорта")
-            else:
-                st.caption("⚠️ Перезапустите оптимизацию для обновления кеша данных")
 
 
 # Footer

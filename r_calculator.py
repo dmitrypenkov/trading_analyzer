@@ -404,5 +404,57 @@ class RCalculator:
         
         # Округляем total_r
         stats['total_r'] = round(stats['total_r'], 2)
-        
+
         return stats
+
+    def calculate_r_cycles(self, trades: List[Dict], target_r: float = 5.0) -> Dict:
+        """
+        Считает R-циклы: отрезки торговли от сброса до достижения +target_r или -target_r.
+
+        Args:
+            trades: Список сделок с r_result
+            target_r: Порог R для завершения цикла (по модулю)
+
+        Returns:
+            Словарь с метриками циклов
+        """
+        executed = [t for t in trades if t.get('result') in ('TP', 'SL', 'BE') and 'r_result' in t]
+
+        if not executed:
+            return {
+                'num_cycles': 0, 'avg_trades_per_cycle': 0,
+                'win_cycles': 0, 'loss_cycles': 0,
+                'win_cycle_rate': 0.0, 'total_trades': 0,
+                'incomplete_r': 0.0, 'cycles': []
+            }
+
+        cum_r = 0.0
+        cycle_start_idx = 0
+        cycles = []
+
+        for i, trade in enumerate(executed):
+            cum_r += trade['r_result']
+
+            if cum_r >= target_r or cum_r <= -target_r:
+                cycles.append({
+                    'trades': i - cycle_start_idx + 1,
+                    'result': 'win' if cum_r >= target_r else 'loss',
+                    'r_reached': round(cum_r, 2)
+                })
+                cum_r = 0.0
+                cycle_start_idx = i + 1
+
+        num_cycles = len(cycles)
+        win_cycles = sum(1 for c in cycles if c['result'] == 'win')
+        loss_cycles = num_cycles - win_cycles
+
+        return {
+            'num_cycles': num_cycles,
+            'avg_trades_per_cycle': round(sum(c['trades'] for c in cycles) / num_cycles, 1) if num_cycles > 0 else 0,
+            'win_cycles': win_cycles,
+            'loss_cycles': loss_cycles,
+            'win_cycle_rate': round(win_cycles / num_cycles * 100, 1) if num_cycles > 0 else 0.0,
+            'total_trades': len(executed),
+            'incomplete_r': round(cum_r, 2),
+            'cycles': cycles
+        }
