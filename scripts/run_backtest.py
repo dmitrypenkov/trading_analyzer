@@ -122,6 +122,15 @@ def run_backtest(params: dict) -> dict:
     if settings.get("use_base_sl_mode", False) and "base_sl" not in params:
         settings["base_sl"] = instrument.get("base_sl", 0)
 
+    # Подтянуть news_currencies из инструмента если фильтр новостей включён
+    if settings.get("use_news_filter", False) and "news_currency_filter" not in params:
+        import json as _json
+        nc_raw = instrument.get("news_currencies", "[]")
+        try:
+            settings["news_currency_filter"] = _json.loads(nc_raw) if isinstance(nc_raw, str) else nc_raw
+        except (ValueError, TypeError):
+            settings["news_currency_filter"] = []
+
     # Загрузка данных из БД
     price_df = candle_repo.get_dataframe(instrument["id"], timeframe, start_date, end_date)
     if price_df.empty:

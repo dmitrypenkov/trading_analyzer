@@ -71,7 +71,7 @@ class InstrumentRepository:
             conn.close()
 
     def update(self, instrument_id: int, **kwargs):
-        allowed = {"symbol", "yahoo_ticker", "asset_class", "price_precision", "base_sl", "is_active"}
+        allowed = {"symbol", "yahoo_ticker", "asset_class", "price_precision", "base_sl", "news_currencies", "is_active"}
         fields = {k: v for k, v in kwargs.items() if k in allowed}
         if not fields:
             return

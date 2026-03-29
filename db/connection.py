@@ -45,26 +45,37 @@ def init_db():
     try:
         conn.executescript(SCHEMA_SQL)
 
-        # Миграция: добавить base_sl если колонки нет
+        # Миграции
         columns = [row['name'] for row in conn.execute("PRAGMA table_info(instruments)").fetchall()]
         if 'base_sl' not in columns:
             conn.execute("ALTER TABLE instruments ADD COLUMN base_sl REAL DEFAULT 0")
-            logger.info("Миграция: добавлена колонка base_sl в instruments")
+            logger.info("Миграция: добавлена колонка base_sl")
+        if 'news_currencies' not in columns:
+            conn.execute("ALTER TABLE instruments ADD COLUMN news_currencies TEXT DEFAULT ''")
+            logger.info("Миграция: добавлена колонка news_currencies")
 
         # Сидирование дефолтных инструментов
+        import json as _json
         for instr in DEFAULT_INSTRUMENTS:
+            nc = _json.dumps(instr.get("news_currencies", []))
             conn.execute(
-                """INSERT OR IGNORE INTO instruments (symbol, yahoo_ticker, asset_class, price_precision, base_sl)
-                   VALUES (?, ?, ?, ?, ?)""",
-                (instr["symbol"], instr["yahoo_ticker"], instr["asset_class"], instr["precision"], instr.get("base_sl", 0))
+                """INSERT OR IGNORE INTO instruments (symbol, yahoo_ticker, asset_class, price_precision, base_sl, news_currencies)
+                   VALUES (?, ?, ?, ?, ?, ?)""",
+                (instr["symbol"], instr["yahoo_ticker"], instr["asset_class"], instr["precision"], instr.get("base_sl", 0), nc)
             )
 
-        # Обновить base_sl для существующих инструментов если ещё 0
+        # Обновить поля для существующих инструментов если пустые
         for instr in DEFAULT_INSTRUMENTS:
+            nc = _json.dumps(instr.get("news_currencies", []))
             if instr.get("base_sl", 0) > 0:
                 conn.execute(
                     "UPDATE instruments SET base_sl = ? WHERE symbol = ? AND base_sl = 0",
                     (instr["base_sl"], instr["symbol"])
+                )
+            if instr.get("news_currencies"):
+                conn.execute(
+                    "UPDATE instruments SET news_currencies = ? WHERE symbol = ? AND (news_currencies IS NULL OR news_currencies = '' OR news_currencies = '[]')",
+                    (nc, instr["symbol"])
                 )
 
         conn.commit()

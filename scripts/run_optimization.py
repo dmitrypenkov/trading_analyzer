@@ -120,6 +120,15 @@ def run_optimization(params: dict) -> dict:
     if settings.get("use_base_sl_mode", True) and "base_sl" not in params:
         settings["base_sl"] = instrument.get("base_sl", 0)
 
+    # News currencies из инструмента
+    if settings.get("use_news_filter", False) and "news_currency_filter" not in params:
+        import json as _json
+        nc_raw = instrument.get("news_currencies", "[]")
+        try:
+            settings["news_currency_filter"] = _json.loads(nc_raw) if isinstance(nc_raw, str) else nc_raw
+        except (ValueError, TypeError):
+            settings["news_currency_filter"] = []
+
     # Конвертация времён
     for tkey in ["block_start", "block_end", "session_start", "session_end"]:
         if isinstance(settings.get(tkey), str):
