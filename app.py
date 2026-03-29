@@ -622,22 +622,22 @@ elif section == "⚙️ Настройки":
                 st.markdown("**📦 Настройки БЛОКА**")
                 block_start = st.time_input(
                     "Начало БЛОКА (UTC)",
-                    value=time(0, 0),
+                    value=time(20, 0),
                     help="Время начала формирования ценового диапазона",
                     key="block_start"
                 )
-                
+
                 block_end = st.time_input(
                     "Конец БЛОКА (UTC)",
-                    value=time(13, 0),
+                    value=time(2, 0),
                     help="Время окончания формирования ценового диапазона",
                     key="block_end"
                 )
-                
+
                 # ========== НОВОЕ: Checkbox для БЛОКА с предыдущего дня ==========
                 from_previous_day = st.checkbox(
                     "📅 Начать БЛОК с предыдущего дня",
-                    value=False,
+                    value=True,
                     help="Если активно, БЛОК начинается с указанного времени предыдущего дня",
                     key="from_previous_day"
                 )
@@ -690,7 +690,7 @@ elif section == "⚙️ Настройки":
                 st.markdown("**🎯 Настройки СЕССИИ**")
                 session_start = st.time_input(
                     "Начало СЕССИИ (UTC)",
-                    value=time(14, 0),
+                    value=time(3, 0),
                     help="Время начала торговой сессии",
                     key="session_start"
                 )
@@ -715,7 +715,7 @@ elif section == "⚙️ Настройки":
                 trading_days = st.multiselect(
                     "Выберите дни недели:",
                     options=[0, 1, 2, 3, 4, 5, 6],
-                    default=[0, 1, 2, 3, 4, 5, 6],
+                    default=[0, 1, 2, 3, 4],
                     format_func=lambda x: ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'][x],
                     help="Дни недели для анализа",
                     key="trading_days"
@@ -764,7 +764,7 @@ elif section == "⚙️ Настройки":
                     "🎯 Коэффициент R для TP",
                     min_value=0.5,
                     max_value=1.0,
-                    value=0.95,
+                    value=1.0,
                     step=0.05,
                     help="Применяется только к прибыльным сделкам для учета комиссий",
                     key="tp_coefficient"
@@ -785,7 +785,7 @@ elif section == "⚙️ Настройки":
                     "📉 Проскальзывание SL",
                     min_value=1.0,
                     max_value=1.5,
-                    value=1.1,
+                    value=1.0,
                     step=0.01,
                     help="Множитель убытка при SL. 1.05 → SL -1.0R станет -1.05R",
                     key="sl_slippage_coefficient"
@@ -796,7 +796,7 @@ elif section == "⚙️ Настройки":
                     "💰 Комиссия за сторону (%)",
                     min_value=0.0,
                     max_value=1.0,
-                    value=0.05,
+                    value=0.0,
                     step=0.01,
                     format="%.2f",
                     help="0.1 = 0.1% за сторону (0.2% round-trip). Вычитается из R каждой сделки",
