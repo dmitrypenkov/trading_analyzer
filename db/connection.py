@@ -45,13 +45,28 @@ def init_db():
     try:
         conn.executescript(SCHEMA_SQL)
 
+        # Миграция: добавить base_sl если колонки нет
+        columns = [row['name'] for row in conn.execute("PRAGMA table_info(instruments)").fetchall()]
+        if 'base_sl' not in columns:
+            conn.execute("ALTER TABLE instruments ADD COLUMN base_sl REAL DEFAULT 0")
+            logger.info("Миграция: добавлена колонка base_sl в instruments")
+
         # Сидирование дефолтных инструментов
         for instr in DEFAULT_INSTRUMENTS:
             conn.execute(
-                """INSERT OR IGNORE INTO instruments (symbol, yahoo_ticker, asset_class, price_precision)
-                   VALUES (?, ?, ?, ?)""",
-                (instr["symbol"], instr["yahoo_ticker"], instr["asset_class"], instr["precision"])
+                """INSERT OR IGNORE INTO instruments (symbol, yahoo_ticker, asset_class, price_precision, base_sl)
+                   VALUES (?, ?, ?, ?, ?)""",
+                (instr["symbol"], instr["yahoo_ticker"], instr["asset_class"], instr["precision"], instr.get("base_sl", 0))
             )
+
+        # Обновить base_sl для существующих инструментов если ещё 0
+        for instr in DEFAULT_INSTRUMENTS:
+            if instr.get("base_sl", 0) > 0:
+                conn.execute(
+                    "UPDATE instruments SET base_sl = ? WHERE symbol = ? AND base_sl = 0",
+                    (instr["base_sl"], instr["symbol"])
+                )
+
         conn.commit()
         logger.info(f"БД инициализирована: {_DB_PATH}")
     finally:

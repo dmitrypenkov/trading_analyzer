@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS instruments (
     yahoo_ticker    TEXT,
     asset_class     TEXT,
     price_precision INTEGER DEFAULT 5,
+    base_sl         REAL DEFAULT 0,
     is_active       BOOLEAN DEFAULT 1,
     created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

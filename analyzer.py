@@ -395,7 +395,31 @@ class TradingAnalyzer:
         Returns:
             Словарь с уровнями TP и SL
         """
-        # НОВОЕ: Проверка на фиксированные TP/SL
+        # Режим Base SL + RR
+        if settings.get('use_base_sl_mode', False):
+            base_sl = settings.get('base_sl', 0)
+            sl_mult = settings.get('sl_multiplier', 0)
+            rr_ratio = settings.get('rr_ratio', 1.0)
+
+            sl_distance = base_sl + (range_size * sl_mult)
+            tp_distance = sl_distance * rr_ratio
+
+            is_long = 'LONG' in entry_type
+            if is_long:
+                tp_price = entry_price + tp_distance
+                sl_price = entry_price - sl_distance
+            else:
+                tp_price = entry_price - tp_distance
+                sl_price = entry_price + sl_distance
+
+            return {
+                'tp_price': tp_price,
+                'sl_price': sl_price,
+                'tp_size': tp_distance,
+                'sl_size': sl_distance
+            }
+
+        # Проверка на фиксированные TP/SL
         use_fixed = settings.get('use_fixed_tp_sl', False)
         
         if use_fixed:

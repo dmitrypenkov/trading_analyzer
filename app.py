@@ -491,6 +491,7 @@ if section == "📂 Данные":
                     "Yahoo тикер": instr.get('yahoo_ticker') or "—",
                     "Класс": instr.get('asset_class') or "—",
                     "Точность": instr.get('price_precision', 5),
+                    "Base SL": instr.get('base_sl', 0),
                     "Активен": "✅" if instr.get('is_active') else "❌",
                     "Свечей": f"{count:,}",
                     "Период": date_range_str
@@ -551,6 +552,12 @@ if section == "📂 Данные":
                                                           value=edit_instr.get('price_precision', 2),
                                                           key="edit_instr_precision")
 
+                    edit_base_sl = st.number_input("Base SL (для режима Base SL + RR)",
+                                                     min_value=0.0,
+                                                     value=float(edit_instr.get('base_sl', 0)),
+                                                     step=0.01,
+                                                     key="edit_instr_base_sl")
+
                     col_eb1, col_eb2 = st.columns(2)
                     with col_eb1:
                         if st.button("💾 Сохранить", key="btn_save_instrument"):
@@ -558,7 +565,8 @@ if section == "📂 Данные":
                                 edit_instr['id'],
                                 yahoo_ticker=edit_yahoo or None,
                                 asset_class=edit_class,
-                                price_precision=edit_precision
+                                price_precision=edit_precision,
+                                base_sl=edit_base_sl
                             )
                             st.success("✅ Сохранено")
                             st.rerun()
@@ -734,31 +742,90 @@ elif section == "⚙️ Настройки":
         
         with tab2:
             st.subheader("🎯 Настройки Take Profit и Stop Loss")
-            
-            # Обычные настройки TP/SL
+
+            # Выбор режима расчёта TP/SL
+            tp_sl_mode = st.radio(
+                "Режим расчёта TP/SL",
+                ["Стандартный (множители x блок)", "Base SL + RR"],
+                horizontal=True,
+                key="tp_sl_mode"
+            )
+            use_base_sl_mode = (tp_sl_mode == "Base SL + RR")
+
             col1, col2 = st.columns(2)
-            
+
+            # Инициализируем переменные для обоих режимов
+            tp_multiplier = 1.0
+            sl_multiplier = 1.0
+            rr_ratio = 1.5
+            base_sl_value = 0.0
+
             with col1:
-                tp_multiplier = st.slider(
-                    "Take Profit множитель",
-                    min_value=0.1,
-                    max_value=3.0,
-                    value=1.0,
-                    step=0.1,
-                    help="TP = entry_price ± (range_size × tp_multiplier)",
-                    key="tp_multiplier"
-                )
-                
-                sl_multiplier = st.slider(
-                    "Stop Loss множитель",
-                    min_value=0.1,
-                    max_value=3.0,
-                    value=1.0,
-                    step=0.1,
-                    help="SL = entry_price ± (range_size × sl_multiplier)",
-                    key="sl_multiplier"
-                )
-                
+                if not use_base_sl_mode:
+                    # Стандартный режим
+                    tp_multiplier = st.slider(
+                        "Take Profit множитель",
+                        min_value=0.1,
+                        max_value=3.0,
+                        value=1.0,
+                        step=0.1,
+                        help="TP = entry_price ± (range_size × tp_multiplier)",
+                        key="tp_multiplier"
+                    )
+
+                    sl_multiplier = st.slider(
+                        "Stop Loss множитель",
+                        min_value=0.1,
+                        max_value=3.0,
+                        value=1.0,
+                        step=0.1,
+                        help="SL = entry_price ± (range_size × sl_multiplier)",
+                        key="sl_multiplier"
+                    )
+                else:
+                    # Режим Base SL + RR
+                    # Показать base_sl текущего инструмента
+                    if st.session_state.price_file_info:
+                        _instr = InstrumentRepository().get_by_symbol(st.session_state.price_file_info.get('name', ''))
+                        if _instr:
+                            base_sl_value = _instr.get('base_sl', 0)
+                            st.info(f"📊 Инструмент: **{_instr['symbol']}** | Base SL: **{base_sl_value}**")
+                        else:
+                            base_sl_value = 0
+                    else:
+                        st.warning("Сначала загрузите данные инструмента")
+
+                    base_sl_value = st.number_input(
+                        "Базовый размер SL",
+                        min_value=0.0,
+                        value=float(base_sl_value),
+                        step=0.01,
+                        help="Фиксированная часть SL для инструмента (в единицах цены)",
+                        key="base_sl_input"
+                    )
+
+                    sl_multiplier = st.slider(
+                        "SL множитель (доля блока)",
+                        min_value=0.0,
+                        max_value=1.0,
+                        value=0.1,
+                        step=0.01,
+                        help="SL = base_sl + (block × sl_multiplier)",
+                        key="sl_multiplier"
+                    )
+
+                    rr_ratio = st.slider(
+                        "Risk-Reward (RR)",
+                        min_value=0.5,
+                        max_value=5.0,
+                        value=1.5,
+                        step=0.1,
+                        help="TP = SL × RR",
+                        key="rr_ratio"
+                    )
+
+                    st.success(f"**Формула:** SL = {base_sl_value} + (block × {sl_multiplier}) | TP = SL × {rr_ratio}")
+
             with col2:
                 tp_coefficient = st.slider(
                     "🎯 Коэффициент R для TP",
@@ -1042,6 +1109,9 @@ elif section == "⚙️ Настройки":
                         'trading_days': trading_days,
                         'tp_multiplier': tp_multiplier,
                         'sl_multiplier': sl_multiplier,
+                        'use_base_sl_mode': use_base_sl_mode,
+                        'base_sl': base_sl_value if use_base_sl_mode else 0,
+                        'rr_ratio': rr_ratio if use_base_sl_mode else 1.0,
                         'tp_coefficient': tp_coefficient,
                         'sl_slippage_coefficient': sl_slippage_coefficient,
                         'commission_rate': commission_rate_value,

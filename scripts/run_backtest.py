@@ -56,6 +56,8 @@ DEFAULTS = {
     "threshold_max": 999999,
     "fixed_tp_distance": 0,
     "fixed_sl_distance": 0,
+    "use_base_sl_mode": False,
+    "rr_ratio": 1.5,
     "use_news_filter": False,
     "news_impact_filter": ["high"],
     "news_buffer_minutes": 30,
@@ -115,6 +117,10 @@ def run_backtest(params: dict) -> dict:
 
     settings["start_date"] = start_date.strftime("%Y-%m-%d")
     settings["end_date"] = end_date.strftime("%Y-%m-%d")
+
+    # Подтянуть base_sl из инструмента если режим Base SL + RR
+    if settings.get("use_base_sl_mode", False) and "base_sl" not in params:
+        settings["base_sl"] = instrument.get("base_sl", 0)
 
     # Загрузка данных из БД
     price_df = candle_repo.get_dataframe(instrument["id"], timeframe, start_date, end_date)
