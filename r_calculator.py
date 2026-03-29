@@ -1,9 +1,10 @@
 """
-Модуль для R-расчетов в Trading Analyzer v10.0
-Рассчитывает R-результаты с учетом коэффициента для TP
+Модуль для R-расчетов в Trading Analyzer v11.0
+Рассчитывает R-результаты с учетом коэффициента для TP,
+коэффициента проскальзывания для SL, комиссий и Max Drawdown
 """
 
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 import logging
 
 # Настройка логирования
@@ -20,19 +21,17 @@ class RCalculator:
         """Простая инициализация без параметров."""
         logger.info("RCalculator инициализирован")
     
-    def calculate_r_result(self, trade: Dict, tp_coefficient: float = 0.9) -> float:
+    def calculate_r_result(self, trade: Dict, tp_coefficient: float = 0.9,
+                           sl_slippage_coefficient: float = 1.0,
+                           commission_rate: float = 0.0) -> float:
         """
-        Рассчитывает R-результат одной сделки с учетом коэффициента.
+        Рассчитывает R-результат одной сделки с учетом коэффициентов и комиссий.
         
         Args:
-            trade: Словарь с данными сделки, должен содержать:
-                - entry_price: цена входа
-                - exit_price: цена выхода
-                - sl_price: цена стоп-лосса
-                - entry_type: тип входа
-                - result: результат сделки (TP/SL/BE/NO_TRADE)
-                - close_reason: причина закрытия (опционально)
-            tp_coefficient: коэффициент для TP сделок (0.5-1.0)
+            trade: Словарь с данными сделки
+            tp_coefficient: коэффициент для TP сделок (0.5-1.0), уменьшает прибыль
+            sl_slippage_coefficient: коэффициент проскальзывания для SL (1.0+), увеличивает убыток
+            commission_rate: ставка комиссии за сторону (например 0.001 = 0.1%)
         
         Returns:
             R-результат, округленный до 2 знаков
@@ -78,11 +77,20 @@ class RCalculator:
             # Базовый R-результат
             base_r = actual_pnl / sl_size
             
-            # Применяем коэффициент только для TP
+            # Применяем коэффициенты в зависимости от результата
             if result == 'TP':
                 final_r = base_r * tp_coefficient
+            elif result == 'SL':
+                # SL slippage увеличивает убыток: -1.0R * 1.05 = -1.05R
+                final_r = base_r * sl_slippage_coefficient
             else:
                 final_r = base_r
+            
+            # Вычитаем комиссию в R-единицах (round-trip: вход + выход)
+            if commission_rate > 0 and sl_size > 0:
+                # Commission_in_R = (entry_price * commission_rate * 2) / sl_size
+                commission_in_r = (entry_price * commission_rate * 2) / sl_size
+                final_r -= commission_in_r
             
             # Округляем до 2 знаков
             return round(final_r, 2)
@@ -91,13 +99,17 @@ class RCalculator:
             logger.error(f"Ошибка при расчете R-результата: {str(e)}")
             return 0.0
     
-    def add_r_to_trades(self, trades: List[Dict], tp_coefficient: float = 0.9) -> List[Dict]:
+    def add_r_to_trades(self, trades: List[Dict], tp_coefficient: float = 0.9,
+                        sl_slippage_coefficient: float = 1.0,
+                        commission_rate: float = 0.0) -> List[Dict]:
         """
         Добавляет поле 'r_result' к каждой сделке в списке.
         
         Args:
             trades: Список сделок
             tp_coefficient: Коэффициент для TP сделок
+            sl_slippage_coefficient: Коэффициент проскальзывания для SL
+            commission_rate: Ставка комиссии за сторону
         
         Returns:
             Новый список с добавленными R-результатами
@@ -109,7 +121,9 @@ class RCalculator:
             trade_copy = trade.copy()
             
             # Рассчитываем и добавляем R-результат
-            trade_copy['r_result'] = self.calculate_r_result(trade, tp_coefficient)
+            trade_copy['r_result'] = self.calculate_r_result(
+                trade, tp_coefficient, sl_slippage_coefficient, commission_rate
+            )
             
             trades_with_r.append(trade_copy)
         
@@ -138,6 +152,81 @@ class RCalculator:
             cumulative_r.append(round(current_sum, 2))
         
         return cumulative_r
+    
+    def calculate_max_drawdown(self, cumulative_r_series: List[float]) -> Dict:
+        """
+        Рассчитывает максимальный drawdown по кривой кумулятивного R.
+        
+        Алгоритм: идём по массиву, отслеживаем текущий пик (максимум),
+        на каждом шаге считаем просадку = текущее значение - пик.
+        Максимальный drawdown = минимальная просадка (наибольшее падение).
+        
+        Args:
+            cumulative_r_series: Список кумулятивных R значений
+        
+        Returns:
+            Словарь с информацией о drawdown:
+                - max_drawdown: максимальная просадка (отрицательное число или 0)
+                - max_drawdown_abs: абсолютное значение просадки
+                - peak_index: индекс пика перед просадкой
+                - trough_index: индекс дна просадки
+                - peak_value: значение R на пике
+                - trough_value: значение R на дне
+                - recovery_index: индекс восстановления (None если не восстановился)
+        """
+        if not cumulative_r_series or len(cumulative_r_series) < 2:
+            return {
+                'max_drawdown': 0.0,
+                'max_drawdown_abs': 0.0,
+                'peak_index': 0,
+                'trough_index': 0,
+                'peak_value': 0.0,
+                'trough_value': 0.0,
+                'recovery_index': None
+            }
+        
+        peak = cumulative_r_series[0]
+        peak_index = 0
+        max_drawdown = 0.0
+        max_dd_peak_index = 0
+        max_dd_trough_index = 0
+        max_dd_peak_value = 0.0
+        max_dd_trough_value = 0.0
+        
+        for i, value in enumerate(cumulative_r_series):
+            # Обновляем пик
+            if value > peak:
+                peak = value
+                peak_index = i
+            
+            # Рассчитываем текущую просадку
+            drawdown = value - peak
+            
+            # Обновляем максимальную просадку
+            if drawdown < max_drawdown:
+                max_drawdown = drawdown
+                max_dd_peak_index = peak_index
+                max_dd_trough_index = i
+                max_dd_peak_value = peak
+                max_dd_trough_value = value
+        
+        # Ищем индекс восстановления после максимальной просадки
+        recovery_index = None
+        if max_dd_trough_index < len(cumulative_r_series) - 1:
+            for i in range(max_dd_trough_index + 1, len(cumulative_r_series)):
+                if cumulative_r_series[i] >= max_dd_peak_value:
+                    recovery_index = i
+                    break
+        
+        return {
+            'max_drawdown': round(max_drawdown, 2),
+            'max_drawdown_abs': round(abs(max_drawdown), 2),
+            'peak_index': max_dd_peak_index,
+            'trough_index': max_dd_trough_index,
+            'peak_value': round(max_dd_peak_value, 2),
+            'trough_value': round(max_dd_trough_value, 2),
+            'recovery_index': recovery_index
+        }
     
     def calculate_entry_type_statistics(self, trades: List[Dict]) -> Dict:
         """

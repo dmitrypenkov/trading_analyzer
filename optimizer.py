@@ -1,5 +1,5 @@
 """
-Модуль оптимизации параметров для Trading Analyzer v10.0
+Модуль оптимизации параметров для Trading Analyzer v11.0
 Выполняет перебор комбинаций TP/SL для поиска оптимальных параметров
 """
 
@@ -11,6 +11,7 @@ import time
 import logging
 from copy import deepcopy
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import threading
 import itertools
 import os
 from pathlib import Path
@@ -49,6 +50,7 @@ class TradingOptimizer:
         
         # Кеш результатов для ускорения повторных вычислений
         self._results_cache = {}
+        self._cache_lock = threading.Lock()
         
         logger.info("TradingOptimizer инициализирован")
     
@@ -188,15 +190,15 @@ class TradingOptimizer:
         
         # Проверяем кеш
         cache_key = f"{tp_multiplier}_{sl_multiplier}"
-        if cache_key in self._results_cache:
-            cached_result = self._results_cache[cache_key]
-            # Пересчитываем только метрику для текущей цели
-            cached_result['metric_value'] = self.calculate_metric(
-                cached_result['analysis_results'], 
-                optimization_target,
-                test_settings.get('tp_coefficient', 0.9)
-            )
-            return cached_result
+        with self._cache_lock:
+            if cache_key in self._results_cache:
+                cached_result = self._results_cache[cache_key].copy()
+                cached_result['metric_value'] = self.calculate_metric(
+                    cached_result['analysis_results'], 
+                    optimization_target,
+                    test_settings
+                )
+                return cached_result
         
         try:
             # Запускаем анализ
@@ -210,7 +212,7 @@ class TradingOptimizer:
             metric_value = self.calculate_metric(
                 analysis_results, 
                 optimization_target,
-                test_settings.get('tp_coefficient', 0.9)
+                test_settings
             )
             
             # Дополнительная статистика
@@ -244,7 +246,8 @@ class TradingOptimizer:
             }
             
             # Сохраняем в кеш
-            self._results_cache[cache_key] = result
+            with self._cache_lock:
+                self._results_cache[cache_key] = result
             
             return result
             
@@ -267,20 +270,27 @@ class TradingOptimizer:
     def calculate_metric(self, 
                         analysis_results: Dict,
                         optimization_target: str,
-                        tp_coefficient: float = 0.9) -> float:
+                        settings: Dict = None) -> float:
         """
         Вычисляет целевую метрику для результатов анализа.
         
         Args:
             analysis_results: Результаты анализа из analyzer
             optimization_target: Цель оптимизации
-            tp_coefficient: Коэффициент для TP сделок
+            settings: Настройки стратегии (для tp_coefficient и др.)
         
         Returns:
             Значение метрики (float)
         """
         if not analysis_results or 'results' not in analysis_results:
             return -999999
+        
+        # Для обратной совместимости
+        if settings is None:
+            settings = {}
+        tp_coefficient = settings.get('tp_coefficient', 0.9) if isinstance(settings, dict) else settings
+        sl_slippage = settings.get('sl_slippage_coefficient', 1.0) if isinstance(settings, dict) else 1.0
+        commission = settings.get('commission_rate', 0.0) if isinstance(settings, dict) else 0.0
         
         results = analysis_results['results']
         
@@ -290,33 +300,37 @@ class TradingOptimizer:
             if r.get('result') in ['TP', 'SL', 'BE']
         ]
         
+        if not executed_trades:
+            return -999999
+        
+        # Считаем R-результаты
+        r_values = [
+            self.r_calculator.calculate_r_result(r, tp_coefficient, sl_slippage, commission)
+            for r in executed_trades
+        ]
+        total_r = sum(r_values)
+        
+        # Считаем Max Drawdown
+        cumulative = []
+        running = 0.0
+        for rv in r_values:
+            running += rv
+            cumulative.append(round(running, 2))
+        dd_info = self.r_calculator.calculate_max_drawdown(cumulative)
+        max_dd_abs = dd_info.get('max_drawdown_abs', 0.0)
+        
         if optimization_target == 'max_total_r':
-            # Максимальный суммарный R-результат
-            total_r = sum(
-                self.r_calculator.calculate_r_result(r, tp_coefficient)
-                for r in executed_trades
-            )
             return total_r
         
-        elif optimization_target == 'max_days_above_threshold':
-            # Максимум дней с R > 0.35
-            # Группируем сделки по дням
-            daily_r = {}
-            for trade in executed_trades:
-                if 'date' in trade:
-                    day_key = trade['date'].strftime('%Y-%m-%d')
-                    if day_key not in daily_r:
-                        daily_r[day_key] = 0
-                    daily_r[day_key] += self.r_calculator.calculate_r_result(trade, tp_coefficient)
-            
-            # Считаем дни с R > 0.35
-            days_above_threshold = sum(1 for r in daily_r.values() if r > 0.35)
-            
-            # Добавляем небольшой бонус за общий R для различения равных результатов
-            total_r = sum(daily_r.values())
-            
-            # Основная метрика - количество дней, плюс небольшой вес для общего R
-            return days_above_threshold + (total_r / 10000)
+        elif optimization_target == 'max_r_dd_ratio':
+            # Calmar-like: Total R / |Max Drawdown|
+            if max_dd_abs < 0.01:
+                return total_r * 100 if total_r > 0 else 0
+            return round(total_r / max_dd_abs, 4)
+        
+        elif optimization_target == 'max_r_minus_dd':
+            # Weighted: Total R - 2 × |Max Drawdown|
+            return round(total_r - 2.0 * max_dd_abs, 4)
         
         else:
             logger.warning(f"Неизвестная цель оптимизации: {optimization_target}")
@@ -470,7 +484,7 @@ class TradingOptimizer:
             # Создаем файл с информацией об экспорте
             info_file = optimization_dir / 'export_info.txt'
             with open(info_file, 'w', encoding='utf-8') as f:
-                f.write(f"Trading Analyzer v10.0 - Детальный экспорт результатов оптимизации\n")
+                f.write(f"Trading Analyzer v11.0 - Детальный экспорт результатов оптимизации\n")
                 f.write(f"{'='*60}\n")
                 f.write(f"Дата экспорта: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
                 f.write(f"Режим экспорта: {export_mode}\n")
@@ -581,9 +595,156 @@ class TradingOptimizer:
             logger.error(f"Ошибка при экспорте результатов: {str(e)}")
             raise
     
+    def optimize_time_and_params(self, 
+                               settings: Dict,
+                               block_start_fixed: str,
+                               session_end_fixed: str,
+                               split_hour_min: int,
+                               split_hour_max: int,
+                               split_hour_step: int,
+                               tp_range: tuple,
+                               sl_range: tuple,
+                               optimization_target: str,
+                               from_previous_day: bool = False,
+                               progress_callback=None) -> Dict:
+        """
+        Двухфазная оптимизация: перебор времени разделения блок/сессия + TP/SL.
+        
+        block_start фиксирован, session_end фиксирован.
+        block_end = session_start = split_hour (перебираемый параметр).
+        
+        Args:
+            settings: Базовые настройки
+            block_start_fixed: Фиксированное начало блока (напр. '00:00')
+            session_end_fixed: Фиксированный конец сессии (напр. '20:00')
+            split_hour_min: Минимальный час разделения (напр. 3)
+            split_hour_max: Максимальный час разделения (напр. 18)
+            split_hour_step: Шаг в часах (напр. 1)
+            tp_range: (min, max, step) для TP
+            sl_range: (min, max, step) для SL
+            optimization_target: Цель оптимизации
+            from_previous_day: Блок с предыдущего дня
+            progress_callback: Функция прогресса
+        
+        Returns:
+            Словарь с результатами оптимизации по всем временным окнам
+        """
+        from datetime import time as dt_time
+        start_time = time.time()
+        
+        # Генерируем временные точки разделения
+        split_hours = list(range(split_hour_min, split_hour_max + 1, split_hour_step))
+        
+        # Генерируем TP/SL комбинации
+        tp_values = self._generate_range_values(*tp_range)
+        sl_values = self._generate_range_values(*sl_range)
+        tp_sl_combinations = list(itertools.product(tp_values, sl_values))
+        
+        total_steps = len(split_hours) * len(tp_sl_combinations)
+        completed = 0
+        
+        all_time_results = []
+        best_overall_metric = None
+        best_overall_result = None
+        
+        is_better = self._get_comparison_function(optimization_target)
+        
+        for split_hour in split_hours:
+            split_time_str = f"{split_hour:02d}:00"
+            
+            # Очищаем кеш для новых временных настроек
+            self.clear_cache()
+            
+            # Настраиваем время
+            time_settings = deepcopy(settings)
+            time_settings['block_start'] = datetime.strptime(block_start_fixed, '%H:%M').time()
+            time_settings['block_end'] = dt_time(split_hour, 0)
+            time_settings['session_start'] = dt_time(split_hour, 0)
+            time_settings['session_end'] = datetime.strptime(session_end_fixed, '%H:%M').time()
+            time_settings['from_previous_day'] = from_previous_day
+            
+            # Лучший результат для текущего временного окна
+            best_time_metric = None
+            best_time_params = None
+            time_results = []
+            
+            for tp_mult, sl_mult in tp_sl_combinations:
+                result = self.run_single_optimization(
+                    time_settings, tp_mult, sl_mult, optimization_target
+                )
+                result['split_hour'] = split_hour
+                result['split_time'] = split_time_str
+                time_results.append(result)
+                
+                current_metric = result['metric_value']
+                if best_time_metric is None or is_better(current_metric, best_time_metric):
+                    best_time_metric = current_metric
+                    best_time_params = {
+                        'tp_multiplier': tp_mult,
+                        'sl_multiplier': sl_mult
+                    }
+                
+                completed += 1
+                if progress_callback:
+                    progress_callback(int(completed / total_steps * 100))
+            
+            # Сохраняем лучший результат для этого времени
+            time_summary = {
+                'split_hour': split_hour,
+                'split_time': split_time_str,
+                'block': f"{block_start_fixed}-{split_time_str}",
+                'session': f"{split_time_str}-{session_end_fixed}",
+                'best_metric': best_time_metric,
+                'best_tp': best_time_params['tp_multiplier'] if best_time_params else None,
+                'best_sl': best_time_params['sl_multiplier'] if best_time_params else None,
+                'all_results': time_results
+            }
+            
+            # Считаем total_r и max_dd для лучшей комбинации
+            if best_time_params:
+                best_key = f"{best_time_params['tp_multiplier']}_{best_time_params['sl_multiplier']}"
+                with self._cache_lock:
+                    if best_key in self._results_cache:
+                        cached = self._results_cache[best_key]
+                        time_summary['best_total_r'] = cached.get('total_r', 0)
+                        time_summary['best_trades'] = cached.get('total_trades', 0)
+                        time_summary['best_win_rate'] = cached.get('win_rate', 0)
+            
+            all_time_results.append(time_summary)
+            
+            # Проверяем общий лучший
+            if best_overall_metric is None or is_better(best_time_metric, best_overall_metric):
+                best_overall_metric = best_time_metric
+                best_overall_result = time_summary
+            
+            logger.info(f"Время {split_time_str}: лучшая метрика = {best_time_metric:.2f}, "
+                       f"TP={best_time_params['tp_multiplier'] if best_time_params else '-'}, "
+                       f"SL={best_time_params['sl_multiplier'] if best_time_params else '-'}")
+        
+        computation_time = time.time() - start_time
+        
+        return {
+            'best_overall': best_overall_result,
+            'all_time_results': all_time_results,
+            'optimization_details': {
+                'total_steps': total_steps,
+                'time_points': len(split_hours),
+                'tp_sl_combinations': len(tp_sl_combinations),
+                'computation_time': round(computation_time, 2),
+                'target': optimization_target,
+                'block_start': block_start_fixed,
+                'session_end': session_end_fixed,
+                'from_previous_day': from_previous_day,
+                'tp_range': tp_range,
+                'sl_range': sl_range,
+                'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            }
+        }
+    
     def clear_cache(self) -> None:
         """Очищает кеш результатов."""
-        self._results_cache.clear()
+        with self._cache_lock:
+            self._results_cache.clear()
         logger.info("Кеш оптимизатора очищен")
     
     def _run_parallel_optimization(self,

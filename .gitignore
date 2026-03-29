@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# Virtual environment
+venv_trading/
+
+# Database
+data/trading.db
+
+# Data files (too large for git)
+m15/*.csv
+
+# Exports
+exports/
+
+# macOS
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Temp
+tmp_help/

@@ -19,6 +19,13 @@ from report_generator import ReportGenerator
 from chart_visualizer import ChartVisualizer
 from optimizer import TradingOptimizer  # НОВЫЙ ИМПОРТ
 
+# Импорт модулей БД и синхронизации
+from db.connection import init_db
+from db.repository import InstrumentRepository, CandleRepository, NewsRepository
+from sync.csv_import import CsvImporter
+from sync.yahoo_finance import YahooFinanceSyncer
+from sync.forexfactory_parser import parse_html_files
+
 
 # Функции для работы с точностью отображения цен
 def format_price(value, precision=None):
@@ -41,9 +48,12 @@ def detect_precision(df):
     return min(max_decimals, 8)
 
 
+# Инициализация БД при старте
+init_db()
+
 # Настройка страницы
 st.set_page_config(
-    page_title="Trading Analyzer v10.0",
+    page_title="Trading Analyzer v11.0",
     page_icon="📊",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -82,11 +92,13 @@ if 'optimization_results' not in st.session_state:
     st.session_state.optimization_results = None
 if 'optimization_running' not in st.session_state:
     st.session_state.optimization_running = False
+if 'time_optimization_results' not in st.session_state:
+    st.session_state.time_optimization_results = None
 if 'price_precision' not in st.session_state:
     st.session_state.price_precision = 2  # По умолчанию 2 знака
 
 # Заголовок приложения
-st.title("📊 Trading Analyzer v10.0")
+st.title("📊 Trading Analyzer v11.0")
 st.markdown("**R-ориентированная система анализа торговых стратегий**")
 
 # Боковая панель для навигации
@@ -94,7 +106,7 @@ with st.sidebar:
     st.markdown("## 🧭 Навигация")
     section = st.radio(
         "Выберите раздел:",
-        ["📁 Загрузка данных", "⚙️ Настройки", "📈 Результаты", "🔧 Оптимизация"],  # ДОБАВЛЕН НОВЫЙ РАЗДЕЛ
+        ["📂 Данные", "⚙️ Настройки", "📈 Результаты", "🔧 Оптимизация"],
         label_visibility="collapsed"
     )
     
@@ -103,11 +115,11 @@ with st.sidebar:
     if st.session_state.data_loaded:
         st.success("✅ Данные загружены")
         if st.session_state.price_file_info:
-            st.caption(f"📊 Цены: {st.session_state.price_file_info['name']}")
-            st.caption(f"└─ {st.session_state.price_file_info['rows']} свечей")
+            info = st.session_state.price_file_info
+            st.caption(f"📊 {info.get('name', 'Данные')}")
+            st.caption(f"└─ {info['rows']} свечей")
         if st.session_state.news_file_info:
-            st.caption(f"📰 Новости: {st.session_state.news_file_info['name']}")
-            st.caption(f"└─ {st.session_state.news_file_info['rows']} событий")
+            st.caption(f"📰 Новости: {st.session_state.news_file_info['rows']} событий")
     else:
         st.warning("⏳ Данные не загружены")
     
@@ -118,190 +130,482 @@ with st.sidebar:
         st.success("🎯 Оптимизация выполнена")
 
 
-# Раздел: Загрузка данных
-if section == "📁 Загрузка данных":
-    st.header("📁 Загрузка данных")
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.subheader("🕯️ Данные о ценах")
-        
-        # Показываем текущий статус
-        if st.session_state.price_data is not None:
-            st.success(f"✅ Загружено: {st.session_state.price_file_info['name']}")
-            with st.expander("📊 Информация о данных"):
-                st.info(f"""
-                **Период данных:**
-                - Начало: {st.session_state.price_file_info['start_date']}
-                - Конец: {st.session_state.price_file_info['end_date']}
-                - Всего дней: {st.session_state.price_file_info['total_days']}
-                - Всего свечей: {st.session_state.price_file_info['rows']}
-                """)
-        
-        price_file = st.file_uploader(
-            "Загрузите CSV файл с ценовыми данными",
-            type=['csv'],
-            help="Файл должен содержать колонки: time (или timestamp), open, high, low, close",
-            key="price_file_uploader"  # Добавлен явный ключ
-        )
-        
-        # Временное хранилище для обработанных данных
-        temp_price_data = None
-        temp_price_info = None
-        
-        if price_file is not None:
-            try:
-                # Загрузка данных
-                price_df = pd.read_csv(price_file)
-                
-                # Проверка и переименование колонок
-                if 'time' in price_df.columns:
-                    price_df = price_df.rename(columns={'time': 'timestamp'})
-                
-                # Проверка необходимых колонок
-                required_columns = ['timestamp', 'open', 'high', 'low', 'close']
-                if all(col in price_df.columns for col in required_columns):
-                    # Преобразование timestamp
-                    price_df['timestamp'] = pd.to_datetime(price_df['timestamp'])
-                    price_df = price_df.sort_values('timestamp')
-                    
-                    # Подготавливаем информацию о файле
-                    temp_price_info = {
-                        'name': price_file.name,
-                        'rows': len(price_df),
-                        'start_date': price_df['timestamp'].min().strftime('%Y-%m-%d %H:%M'),
-                        'end_date': price_df['timestamp'].max().strftime('%Y-%m-%d %H:%M'),
-                        'total_days': (price_df['timestamp'].max() - price_df['timestamp'].min()).days
-                    }
-                    
-                    temp_price_data = price_df
-                    st.success(f"✅ Файл проверен: {len(price_df)} свечей")
+# Раздел: Данные
+if section == "📂 Данные":
+    st.header("📂 Управление данными")
 
-                    # Определение и настройка точности
-                    detected_precision = detect_precision(temp_price_data)
-                    st.markdown("### ⚙️ Настройка точности отображения")
-                    precision = st.number_input(
-                        "Количество знаков после запятой",
-                        min_value=0,
-                        max_value=8,
-                        value=detected_precision,
-                        help=f"Автоматически определено: {detected_precision} знаков. Можно изменить вручную.",
-                        key="temp_precision"
-                    )
-                    
-                else:
-                    st.error(f"❌ Отсутствуют необходимые колонки: {required_columns}")
-                    
-            except Exception as e:
-                st.error(f"❌ Ошибка при загрузке файла: {str(e)}")
-    
-    with col2:
-        st.subheader("📰 Данные о новостях (опционально)")
-        
-        # Показываем текущий статус
-        if st.session_state.news_data is not None:
-            st.success(f"✅ Загружено: {st.session_state.news_file_info['name']}")
-            with st.expander("📰 Статистика новостей"):
-                impact_counts = st.session_state.news_data['impact'].value_counts()
-                st.info(f"""
-                **Статистика новостей:**
-                - High Impact: {impact_counts.get('high', 0)}
-                - Medium Impact: {impact_counts.get('medium', 0)}
-                - Low Impact: {impact_counts.get('low', 0)}
-                - Всего событий: {st.session_state.news_file_info['rows']}
-                """)
-        
-        news_file = st.file_uploader(
-            "Загрузите CSV файл с новостными событиями",
-            type=['csv'],
-            help="Файл должен содержать колонки: DateTime_UTC (или timestamp), Impact (или impact), Event",
-            key="news_file_uploader"  # Добавлен явный ключ
+    # Инициализация репозиториев
+    _instrument_repo = InstrumentRepository()
+    _candle_repo = CandleRepository()
+    _news_repo = NewsRepository()
+    _csv_importer = CsvImporter()
+
+    tab_load, tab_import, tab_yahoo, tab_instruments = st.tabs([
+        "🕯️ Загрузка из БД", "📥 Импорт", "🌐 Yahoo Finance", "📋 Инструменты"
+    ])
+
+    # === ТАБ 1: Загрузка из БД ===
+    with tab_load:
+        st.subheader("Загрузка данных для анализа")
+
+        instruments = _instrument_repo.get_active()
+        if not instruments:
+            st.warning("Нет инструментов в БД. Перейдите на вкладку 'Инструменты'.")
+        else:
+            # Фильтруем только те, у которых есть данные
+            instruments_with_data = []
+            for instr in instruments:
+                count = _candle_repo.get_count(instr['id'])
+                if count > 0:
+                    instr['_count'] = count
+                    instr['_range'] = _candle_repo.get_date_range(instr['id'])
+                    instruments_with_data.append(instr)
+
+            if not instruments_with_data:
+                st.info("В БД нет свечных данных. Импортируйте CSV или синхронизируйте с Yahoo Finance.")
+            else:
+                symbol_list = [f"{i['symbol']} ({i['_count']:,} свечей)" for i in instruments_with_data]
+                selected_idx = st.selectbox(
+                    "Инструмент",
+                    range(len(symbol_list)),
+                    format_func=lambda i: symbol_list[i],
+                    key="db_instrument_select"
+                )
+                selected_instr = instruments_with_data[selected_idx]
+
+                date_range = selected_instr['_range']
+                min_date = pd.to_datetime(date_range[0]).date()
+                max_date = pd.to_datetime(date_range[1]).date()
+
+                st.caption(f"Доступные данные: {min_date} — {max_date}")
+
+                col_d1, col_d2 = st.columns(2)
+                with col_d1:
+                    load_start = st.date_input("Начало", value=min_date, min_value=min_date, max_value=max_date, key="db_start_date")
+                with col_d2:
+                    load_end = st.date_input("Конец", value=max_date, min_value=min_date, max_value=max_date, key="db_end_date")
+
+                # Точность отображения
+                precision = st.number_input(
+                    "Точность отображения цен (знаков после запятой)",
+                    min_value=0, max_value=8,
+                    value=selected_instr.get('price_precision', 2),
+                    key="db_precision"
+                )
+
+                col_btn1, col_btn2 = st.columns(2)
+                with col_btn1:
+                    if st.button("✅ Загрузить данные", type="primary", use_container_width=True, key="btn_load_db"):
+                        price_df = _candle_repo.get_dataframe(
+                            selected_instr['id'], '15m', load_start, load_end
+                        )
+                        if price_df.empty:
+                            st.error("Нет данных за выбранный период.")
+                        else:
+                            # Загружаем новости за тот же период
+                            news_df = _news_repo.get_dataframe(load_start, load_end)
+
+                            st.session_state.price_data = price_df
+                            st.session_state.price_file_info = {
+                                'name': selected_instr['symbol'],
+                                'rows': len(price_df),
+                                'start_date': price_df['timestamp'].min().strftime('%Y-%m-%d %H:%M'),
+                                'end_date': price_df['timestamp'].max().strftime('%Y-%m-%d %H:%M'),
+                                'total_days': (price_df['timestamp'].max() - price_df['timestamp'].min()).days
+                            }
+                            st.session_state.price_precision = precision
+                            st.session_state.data_loaded = True
+
+                            if not news_df.empty:
+                                st.session_state.news_data = news_df
+                                st.session_state.news_file_info = {'name': 'БД', 'rows': len(news_df)}
+                            else:
+                                st.session_state.news_data = None
+                                st.session_state.news_file_info = None
+
+                            # Сбрасываем предыдущие результаты анализа
+                            st.session_state.analysis_results = None
+                            st.session_state.daily_trades_df = None
+                            st.session_state.summary_report = None
+
+                            st.success(f"✅ Загружено {len(price_df):,} свечей {selected_instr['symbol']}")
+                            if not news_df.empty:
+                                st.info(f"📰 Загружено {len(news_df):,} новостей")
+                            st.rerun()
+
+                with col_btn2:
+                    if st.session_state.data_loaded:
+                        if st.button("🗑️ Очистить данные", use_container_width=True, key="btn_clear_data"):
+                            st.session_state.price_data = None
+                            st.session_state.news_data = None
+                            st.session_state.price_file_info = None
+                            st.session_state.news_file_info = None
+                            st.session_state.data_loaded = False
+                            st.session_state.analysis_results = None
+                            st.session_state.daily_trades_df = None
+                            st.session_state.summary_report = None
+                            st.info("🗑️ Данные очищены")
+                            st.rerun()
+
+        # Показ текущего состояния
+        if st.session_state.data_loaded and st.session_state.price_file_info:
+            st.markdown("---")
+            info = st.session_state.price_file_info
+            st.success(f"**Текущие данные:** {info['name']} — {info['rows']:,} свечей "
+                       f"({info['start_date']} — {info['end_date']})")
+
+    # === ТАБ 2: Импорт ===
+    with tab_import:
+        st.subheader("Импорт данных в базу")
+
+        import_type = st.radio(
+            "Тип данных",
+            ["🕯️ Ценовые данные (CSV)", "📰 Новости (CSV)", "📰 Новости (HTML ForexFactory)"],
+            horizontal=True,
+            key="import_type_radio"
         )
-        
-        # Временное хранилище для обработанных данных
-        temp_news_data = None
-        temp_news_info = None
-        
-        if news_file is not None:
-            try:
-                news_df = pd.read_csv(news_file)
-                
-                # Проверка и переименование колонок
-                if 'DateTime_UTC' in news_df.columns:
-                    news_df = news_df.rename(columns={'DateTime_UTC': 'timestamp'})
-                if 'Impact' in news_df.columns:
-                    news_df = news_df.rename(columns={'Impact': 'impact'})
-                
-                # Проверка необходимых колонок
-                required_columns = ['timestamp', 'impact']
-                if all(col in news_df.columns for col in required_columns):
-                    # Преобразование timestamp
-                    news_df['timestamp'] = pd.to_datetime(news_df['timestamp'])
-                    news_df = news_df.sort_values('timestamp')
-                    
-                    # Подготавливаем информацию о файле
-                    temp_news_info = {
-                        'name': news_file.name,
-                        'rows': len(news_df)
-                    }
-                    
-                    temp_news_data = news_df
-                    st.success(f"✅ Файл проверен: {len(news_df)} новостных событий")
-                    
+
+        if import_type == "🕯️ Ценовые данные (CSV)":
+            instruments = _instrument_repo.get_all()
+            symbol_names = [i['symbol'] for i in instruments]
+
+            csv_file = st.file_uploader(
+                "CSV файл со свечами",
+                type=['csv'],
+                help="Колонки: time (или timestamp), open, high, low, close",
+                key="import_price_uploader"
+            )
+
+            if csv_file is not None:
+                # Автоопределение инструмента
+                detected = _csv_importer.auto_detect_instrument(csv_file.name)
+                default_idx = symbol_names.index(detected) if detected and detected in symbol_names else 0
+
+                target_symbol = st.selectbox(
+                    "Целевой инструмент",
+                    symbol_names,
+                    index=default_idx,
+                    key="import_target_instrument"
+                )
+
+                # Превью
+                try:
+                    preview_df = pd.read_csv(csv_file)
+                    if 'time' in preview_df.columns:
+                        preview_df = preview_df.rename(columns={'time': 'timestamp'})
+                    if 'timestamp' in preview_df.columns:
+                        preview_df['timestamp'] = pd.to_datetime(preview_df['timestamp'])
+                        st.info(f"Строк: {len(preview_df):,} | "
+                                f"Период: {preview_df['timestamp'].min().strftime('%Y-%m-%d')} — "
+                                f"{preview_df['timestamp'].max().strftime('%Y-%m-%d')}")
+                    csv_file.seek(0)
+                except Exception as e:
+                    st.warning(f"Не удалось прочитать превью: {e}")
+                    csv_file.seek(0)
+
+                if st.button("📥 Импортировать", type="primary", key="btn_import_price"):
+                    target_instr = _instrument_repo.get_by_symbol(target_symbol)
+                    if target_instr:
+                        csv_file.seek(0)
+                        result = _csv_importer.import_price_csv(
+                            csv_file, target_instr['id'], '15m', csv_file.name
+                        )
+                        if result.error:
+                            st.error(f"Ошибка: {result.error}")
+                        else:
+                            st.success(
+                                f"✅ Импорт завершён: вставлено {result.inserted:,}, "
+                                f"пропущено дубликатов {result.skipped:,}\n\n"
+                                f"Период: {result.date_from} — {result.date_to}"
+                            )
+                    else:
+                        st.error(f"Инструмент {target_symbol} не найден")
+
+        elif import_type == "📰 Новости (CSV)":
+            news_csv = st.file_uploader(
+                "CSV файл с новостями",
+                type=['csv'],
+                help="Колонки: timestamp (или DateTime_UTC), impact (или Impact), event, currency",
+                key="import_news_uploader"
+            )
+
+            if news_csv is not None:
+                try:
+                    preview_df = pd.read_csv(news_csv)
+                    st.info(f"Строк: {len(preview_df):,}")
+                    news_csv.seek(0)
+                except Exception:
+                    news_csv.seek(0)
+
+                if st.button("📥 Импортировать новости", type="primary", key="btn_import_news"):
+                    news_csv.seek(0)
+                    result = _csv_importer.import_news_csv(news_csv, news_csv.name)
+                    if result.error:
+                        st.error(f"Ошибка: {result.error}")
+                    else:
+                        st.success(
+                            f"✅ Импорт завершён: вставлено {result.inserted:,}, "
+                            f"пропущено дубликатов {result.skipped:,}\n\n"
+                            f"Период: {result.date_from} — {result.date_to}"
+                        )
+
+        else:  # Новости HTML ForexFactory
+            st.caption("Загрузите HTML файлы, сохранённые с forexfactory.com/calendar")
+            html_files = st.file_uploader(
+                "HTML файлы ForexFactory (по месяцам)",
+                type=['html', 'htm'],
+                accept_multiple_files=True,
+                help="Откройте календарь ForexFactory по месяцам, сохраните как HTML (Ctrl+S)",
+                key="import_ff_html_uploader"
+            )
+
+            if html_files:
+                st.info(f"Загружено файлов: {len(html_files)}")
+
+                if st.button("📥 Парсить и импортировать", type="primary", key="btn_import_ff_html"):
+                    with st.spinner("Парсинг HTML файлов..."):
+                        news_df = parse_html_files(html_files)
+
+                    if news_df.empty:
+                        st.error("Не удалось извлечь события. Проверьте формат HTML файлов.")
+                    else:
+                        # Статистика парсинга
+                        impact_counts = news_df['impact'].value_counts()
+                        st.info(
+                            f"Распарсено: {len(news_df):,} событий | "
+                            f"High: {impact_counts.get('high', 0)} | "
+                            f"Medium: {impact_counts.get('medium', 0)} | "
+                            f"Low: {impact_counts.get('low', 0)}"
+                        )
+
+                        # Импорт в БД
+                        inserted, skipped = _news_repo.bulk_insert(news_df, source='forexfactory')
+
+                        # Лог
+                        from db.repository import ImportLogRepository
+                        ImportLogRepository().log_import(
+                            instrument_id=None, source='forexfactory',
+                            filename=f"{len(html_files)} HTML files",
+                            rows_imported=inserted, rows_skipped=skipped,
+                            date_from=news_df['timestamp'].min().strftime('%Y-%m-%d'),
+                            date_to=news_df['timestamp'].max().strftime('%Y-%m-%d')
+                        )
+
+                        st.success(
+                            f"✅ Импорт завершён: вставлено {inserted:,}, "
+                            f"пропущено дубликатов {skipped:,}\n\n"
+                            f"Период: {news_df['timestamp'].min().strftime('%Y-%m-%d')} — "
+                            f"{news_df['timestamp'].max().strftime('%Y-%m-%d')}"
+                        )
+
+    # === ТАБ 3: Yahoo Finance ===
+    with tab_yahoo:
+        st.subheader("Синхронизация с Yahoo Finance")
+        st.caption("Загружает 15-минутные свечи за последние ~60 дней")
+
+        instruments = _instrument_repo.get_active()
+        instruments_with_yahoo = [i for i in instruments if i.get('yahoo_ticker')]
+
+        if not instruments_with_yahoo:
+            st.warning("Нет инструментов с настроенным Yahoo тикером.")
+        else:
+            # Таблица состояния
+            status_data = []
+            for instr in instruments_with_yahoo:
+                dr = _candle_repo.get_date_range(instr['id'])
+                last_date = pd.to_datetime(dr[1]).strftime('%Y-%m-%d') if dr else "—"
+                count = _candle_repo.get_count(instr['id'])
+                status_data.append({
+                    "Инструмент": instr['symbol'],
+                    "Yahoo": instr['yahoo_ticker'],
+                    "Свечей в БД": f"{count:,}",
+                    "Последняя дата": last_date
+                })
+            st.dataframe(pd.DataFrame(status_data), use_container_width=True, hide_index=True)
+
+            col_y1, col_y2 = st.columns(2)
+            with col_y1:
+                yahoo_symbols = [i['symbol'] for i in instruments_with_yahoo]
+                selected_yahoo = st.selectbox(
+                    "Инструмент для синхронизации",
+                    yahoo_symbols,
+                    key="yahoo_sync_select"
+                )
+                if st.button("🔄 Синхронизировать", key="btn_yahoo_sync_one"):
+                    instr = _instrument_repo.get_by_symbol(selected_yahoo)
+                    if instr:
+                        syncer = YahooFinanceSyncer()
+                        with st.spinner(f"Загрузка {selected_yahoo} из Yahoo Finance..."):
+                            result = syncer.sync_instrument(instr['id'])
+                        if result.error:
+                            st.error(f"Ошибка: {result.error}")
+                        else:
+                            st.success(
+                                f"✅ {result.symbol}: загружено {result.fetched:,}, "
+                                f"вставлено {result.inserted:,}, "
+                                f"пропущено {result.skipped:,}"
+                            )
+
+            with col_y2:
+                st.markdown("&nbsp;")  # spacer
+                if st.button("🔄 Синхронизировать все", key="btn_yahoo_sync_all"):
+                    syncer = YahooFinanceSyncer()
+                    progress = st.progress(0)
+                    status_text = st.empty()
+                    total = len(instruments_with_yahoo)
+                    results = []
+
+                    for idx, instr in enumerate(instruments_with_yahoo):
+                        status_text.text(f"Синхронизация {instr['symbol']}... ({idx+1}/{total})")
+                        result = syncer.sync_instrument(instr['id'])
+                        results.append(result)
+                        progress.progress((idx + 1) / total)
+                        if idx < total - 1:
+                            import time as _time
+                            _time.sleep(1.5)
+
+                    progress.empty()
+                    status_text.empty()
+
+                    for r in results:
+                        if r.error:
+                            st.warning(f"⚠️ {r.symbol}: {r.error}")
+                        else:
+                            st.success(f"✅ {r.symbol}: +{r.inserted:,} свечей")
+
+    # === ТАБ 4: Инструменты ===
+    with tab_instruments:
+        st.subheader("Управление инструментами")
+
+        instruments = _instrument_repo.get_all()
+
+        # Таблица инструментов
+        if instruments:
+            tbl_data = []
+            for instr in instruments:
+                count = _candle_repo.get_count(instr['id'])
+                dr = _candle_repo.get_date_range(instr['id'])
+                date_range_str = f"{pd.to_datetime(dr[0]).strftime('%Y-%m-%d')} — {pd.to_datetime(dr[1]).strftime('%Y-%m-%d')}" if dr else "—"
+                tbl_data.append({
+                    "Символ": instr['symbol'],
+                    "Yahoo тикер": instr.get('yahoo_ticker') or "—",
+                    "Класс": instr.get('asset_class') or "—",
+                    "Точность": instr.get('price_precision', 5),
+                    "Активен": "✅" if instr.get('is_active') else "❌",
+                    "Свечей": f"{count:,}",
+                    "Период": date_range_str
+                })
+            st.dataframe(pd.DataFrame(tbl_data), use_container_width=True, hide_index=True)
+
+        # Добавление нового инструмента
+        with st.expander("➕ Добавить инструмент"):
+            col_a1, col_a2, col_a3, col_a4 = st.columns(4)
+            with col_a1:
+                new_symbol = st.text_input("Символ", placeholder="BTCUSD", key="new_instr_symbol")
+            with col_a2:
+                new_yahoo = st.text_input("Yahoo тикер", placeholder="BTC-USD", key="new_instr_yahoo")
+            with col_a3:
+                new_class = st.selectbox("Класс актива",
+                                         ["forex", "commodity", "index", "crypto"],
+                                         key="new_instr_class")
+            with col_a4:
+                new_precision = st.number_input("Точность", min_value=0, max_value=8,
+                                                 value=2, key="new_instr_precision")
+            if st.button("Добавить", key="btn_add_instrument"):
+                if new_symbol:
+                    existing = _instrument_repo.get_by_symbol(new_symbol.upper())
+                    if existing:
+                        st.error(f"Инструмент {new_symbol.upper()} уже существует")
+                    else:
+                        _instrument_repo.create(
+                            new_symbol.upper(), new_yahoo or None,
+                            new_class, new_precision
+                        )
+                        st.success(f"✅ Добавлен {new_symbol.upper()}")
+                        st.rerun()
                 else:
-                    st.error(f"❌ Отсутствуют необходимые колонки: {required_columns}")
-                    
-            except Exception as e:
-                st.error(f"❌ Ошибка при загрузке файла: {str(e)}")
-    
-    # Кнопка для применения загруженных данных
-    st.markdown("---")
-    col1_btn, col2_btn = st.columns(2)
-    
-    with col1_btn:
-        # Проверяем наличие новых данных для загрузки
-        has_new_price = price_file is not None and 'temp_price_data' in locals() and temp_price_data is not None
-        has_new_news = news_file is not None and 'temp_news_data' in locals() and temp_news_data is not None
-        
-        if has_new_price or has_new_news:
-            if st.button("✅ Применить загруженные данные", type="primary", use_container_width=True):
-                # Применяем данные о ценах
-                if has_new_price:
-                    st.session_state.price_data = temp_price_data
-                    st.session_state.price_file_info = temp_price_info
-                    st.session_state.data_loaded = True
-                    # Применяем выбранную точность
-                if 'temp_precision' in st.session_state:
-                    st.session_state.price_precision = st.session_state.temp_precision
-                
-                # Применяем данные о новостях
-                if has_new_news:
-                    st.session_state.news_data = temp_news_data
-                    st.session_state.news_file_info = temp_news_info
-                
-                st.success("✅ Данные успешно загружены!")
-                st.balloons()
-                st.rerun()
-    
-    with col2_btn:
-        if st.session_state.data_loaded:
-            if st.button("🗑️ Очистить все данные", use_container_width=True):
-                st.session_state.price_data = None
-                st.session_state.news_data = None
-                st.session_state.price_file_info = None
-                st.session_state.news_file_info = None
-                st.session_state.data_loaded = False
-                st.session_state.analysis_results = None
-                st.session_state.daily_trades_df = None
-                st.session_state.summary_report = None
-                st.info("🗑️ Все данные очищены")
-                st.rerun()
+                    st.error("Введите символ")
+
+        # Редактирование инструмента
+        if instruments:
+            with st.expander("✏️ Редактировать инструмент"):
+                edit_symbols = [i['symbol'] for i in instruments]
+                edit_symbol = st.selectbox("Выберите инструмент", edit_symbols, key="edit_instr_select")
+                edit_instr = _instrument_repo.get_by_symbol(edit_symbol)
+
+                if edit_instr:
+                    col_e1, col_e2, col_e3 = st.columns(3)
+                    with col_e1:
+                        edit_yahoo = st.text_input("Yahoo тикер",
+                                                    value=edit_instr.get('yahoo_ticker') or "",
+                                                    key="edit_instr_yahoo")
+                    with col_e2:
+                        edit_class = st.selectbox("Класс актива",
+                                                   ["forex", "commodity", "index", "crypto"],
+                                                   index=["forex", "commodity", "index", "crypto"].index(
+                                                       edit_instr.get('asset_class', 'forex')),
+                                                   key="edit_instr_class")
+                    with col_e3:
+                        edit_precision = st.number_input("Точность",
+                                                          min_value=0, max_value=8,
+                                                          value=edit_instr.get('price_precision', 2),
+                                                          key="edit_instr_precision")
+
+                    col_eb1, col_eb2 = st.columns(2)
+                    with col_eb1:
+                        if st.button("💾 Сохранить", key="btn_save_instrument"):
+                            _instrument_repo.update(
+                                edit_instr['id'],
+                                yahoo_ticker=edit_yahoo or None,
+                                asset_class=edit_class,
+                                price_precision=edit_precision
+                            )
+                            st.success("✅ Сохранено")
+                            st.rerun()
+                    with col_eb2:
+                        if st.button("🗑️ Удалить инструмент", key="btn_delete_instrument"):
+                            _instrument_repo.delete(edit_instr['id'])
+                            st.warning(f"Удалён {edit_symbol} и все его данные")
+                            st.rerun()
+
+        # Новости — статистика
+        st.markdown("---")
+        st.subheader("📰 Новости в БД")
+        news_count = _news_repo.get_count()
+        if news_count > 0:
+            news_range = _news_repo.get_date_range()
+            st.info(f"Всего событий: {news_count:,} | "
+                    f"Период: {pd.to_datetime(news_range[0]).strftime('%Y-%m-%d')} — "
+                    f"{pd.to_datetime(news_range[1]).strftime('%Y-%m-%d')}")
+        else:
+            st.caption("Нет новостей. Импортируйте CSV на вкладке 'Импорт CSV'.")
 
 
 # Раздел: Настройки
 elif section == "⚙️ Настройки":
     st.header("⚙️ Настройки стратегии")
+    
+    # Применяем загруженные из JSON настройки ДО создания виджетов
+    if hasattr(st.session_state, '_pending_settings') and st.session_state._pending_settings:
+        _ps = st.session_state._pending_settings
+        for key, value in _ps.items():
+            if key in ['block_start', 'block_end', 'session_start', 'session_end']:
+                try:
+                    st.session_state[key] = datetime.strptime(value, '%H:%M').time()
+                except:
+                    pass
+            elif key in ['start_date', 'end_date']:
+                try:
+                    st.session_state[key] = datetime.strptime(value, '%Y-%m-%d').date()
+                except:
+                    pass
+            elif key == 'target_r':
+                pass  # Устаревший параметр
+            else:
+                st.session_state[key] = value
+        st.session_state.current_settings = _ps
+        st.session_state._pending_settings = None
+        st.info("✅ Настройки из JSON применены")
     
     if not st.session_state.data_loaded:
         st.warning("⚠️ Сначала загрузите данные о ценах")
@@ -403,11 +707,22 @@ elif section == "⚙️ Настройки":
                 trading_days = st.multiselect(
                     "Выберите дни недели:",
                     options=[0, 1, 2, 3, 4, 5, 6],
-                    default=[0, 1, 2, 3, 4],
+                    default=[0, 1, 2, 3, 4, 5, 6],
                     format_func=lambda x: ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'][x],
                     help="Дни недели для анализа",
                     key="trading_days"
                 )
+                
+                # Лимитный вход для ENTRY-типов
+                limit_only_entry = st.checkbox(
+                    "📌 Только лимитный вход",
+                    value=False,
+                    help="Для ENTRY-типов: вход только после пересечения границы и повторного касания",
+                    key="limit_only_entry"
+                )
+                
+                if limit_only_entry:
+                    st.info("📌 ENTRY: пересечение границы → возврат → вход")
         
         with tab2:
             st.subheader("🎯 Настройки Take Profit и Stop Loss")
@@ -418,7 +733,7 @@ elif section == "⚙️ Настройки":
             with col1:
                 tp_multiplier = st.slider(
                     "Take Profit множитель",
-                    min_value=0.2,
+                    min_value=0.1,
                     max_value=3.0,
                     value=1.0,
                     step=0.1,
@@ -428,7 +743,7 @@ elif section == "⚙️ Настройки":
                 
                 sl_multiplier = st.slider(
                     "Stop Loss множитель",
-                    min_value=0.2,
+                    min_value=0.1,
                     max_value=3.0,
                     value=1.0,
                     step=0.1,
@@ -441,7 +756,7 @@ elif section == "⚙️ Настройки":
                     "🎯 Коэффициент R для TP",
                     min_value=0.5,
                     max_value=1.0,
-                    value=0.9,
+                    value=0.95,
                     step=0.05,
                     help="Применяется только к прибыльным сделкам для учета комиссий",
                     key="tp_coefficient"
@@ -456,15 +771,38 @@ elif section == "⚙️ Настройки":
                 - SL и BE не изменяются
                 """)
                 
-                target_r = st.number_input(
-                    "Целевой R-результат",
+
+                # Коэффициент проскальзывания для SL
+                sl_slippage_coefficient = st.slider(
+                    "📉 Проскальзывание SL",
                     min_value=1.0,
-                    max_value=20.0,
-                    value=5.0,
-                    step=0.5,
-                    help="Целевой R-результат для анализа скорости достижения",
-                    key="target_r"
+                    max_value=1.5,
+                    value=1.1,
+                    step=0.01,
+                    help="Множитель убытка при SL. 1.05 → SL -1.0R станет -1.05R",
+                    key="sl_slippage_coefficient"
                 )
+                
+                # Комиссия за сторону
+                commission_rate = st.number_input(
+                    "💰 Комиссия за сторону (%)",
+                    min_value=0.0,
+                    max_value=1.0,
+                    value=0.05,
+                    step=0.01,
+                    format="%.2f",
+                    help="0.1 = 0.1% за сторону (0.2% round-trip). Вычитается из R каждой сделки",
+                    key="commission_rate_pct"
+                )
+                commission_rate_value = commission_rate / 100.0
+                
+                if sl_slippage_coefficient > 1.0 or commission_rate > 0:
+                    st.info(f"""
+                    📊 **Корректировки R:**
+                    - TP коэффициент: ×{tp_coefficient}
+                    - SL проскальзывание: ×{sl_slippage_coefficient}
+                    - Комиссия: {commission_rate}% за сторону
+                    """)
             
             # НОВЫЙ РАЗДЕЛ: Фиксированные TP/SL
             st.markdown("---")
@@ -640,17 +978,8 @@ elif section == "⚙️ Настройки":
                 try:
                     loaded_settings = json.load(settings_file)
                     if st.button("📥 Применить загруженные настройки", type="primary"):
-                        # Применяем настройки через session_state
-                        for key, value in loaded_settings.items():
-                            if key in ['block_start', 'block_end', 'session_start', 'session_end']:
-                                # Преобразуем строки времени обратно в time объекты
-                                st.session_state[key] = datetime.strptime(value, '%H:%M').time()
-                            elif key in ['start_date', 'end_date']:
-                                # Преобразуем строки дат
-                                st.session_state[key] = datetime.strptime(value, '%Y-%m-%d').date()
-                            else:
-                                st.session_state[key] = value
-                        
+                        # Сохраняем в промежуточный буфер — применится при следующем рендере
+                        st.session_state._pending_settings = loaded_settings
                         st.success(f"✅ Настройки загружены из {settings_file.name}")
                         st.rerun()
                         
@@ -701,7 +1030,9 @@ elif section == "⚙️ Настройки":
                         'tp_multiplier': tp_multiplier,
                         'sl_multiplier': sl_multiplier,
                         'tp_coefficient': tp_coefficient,
-                        'target_r': target_r,
+                        'sl_slippage_coefficient': sl_slippage_coefficient,
+                        'commission_rate': commission_rate_value,
+                        'limit_only_entry': limit_only_entry,
                         'min_range_size': min_range_size,
                         'max_range_size': max_range_size,
                         'use_news_filter': use_news_filter,
@@ -729,6 +1060,39 @@ elif section == "⚙️ Настройки":
                     st.session_state.saved_settings[settings_name] = settings
                     st.session_state.current_settings = settings
                     st.success(f"✅ Настройки '{settings_name}' сохранены")
+                    
+                    # Показываем сохранённые настройки
+                    with st.expander("📋 Сохранённые настройки", expanded=True):
+                        scol1, scol2 = st.columns(2)
+                        with scol1:
+                            st.markdown(f"""
+                            **Время (UTC):**
+                            - Блок: {settings['block_start']} — {settings['block_end']}
+                            - Сессия: {settings['session_start']} — {settings['session_end']}
+                            - С предыдущего дня: {'Да' if settings.get('from_previous_day') else 'Нет'}
+                            
+                            **Режим:** {'Возвратный' if settings['use_return_mode'] else 'По-тренду'}
+                            
+                            **TP/SL:**
+                            - TP множитель: {settings['tp_multiplier']}
+                            - SL множитель: {settings['sl_multiplier']}
+                            - TP коэффициент: {settings['tp_coefficient']}
+                            - SL проскальзывание: {settings.get('sl_slippage_coefficient', 1.0)}
+                            - Комиссия: {settings.get('commission_rate', 0) * 100:.2f}% за сторону
+                            """)
+                        with scol2:
+                            st.markdown(f"""
+                            **Фильтры:**
+                            - Диапазон: {settings['min_range_size']} — {settings['max_range_size']}
+                            - Лимитный вход: {'Да' if settings.get('limit_only_entry') else 'Нет'}
+                            - Фильтр новостей: {'Да' if settings.get('use_news_filter') else 'Нет'}
+                            - Пропуск красных дней: {'Да' if settings.get('skip_red_news_days') else 'Нет'}
+                            
+                            **Период:**
+                            - {settings['start_date']} — {settings['end_date']}
+                            
+                            **Фикс. TP/SL:** {'Да' if settings.get('use_fixed_tp_sl') else 'Нет'}
+                            """)
             
             with col2:
                 if st.button("📥 Скачать настройки как JSON"):
@@ -791,7 +1155,9 @@ elif section == "📈 Результаты":
                             # Генерация отчетов
                             daily_trades_df = report_generator.prepare_daily_trades(
                                 analysis_results['results'], 
-                                settings['tp_coefficient']
+                                settings['tp_coefficient'],
+                                settings.get('sl_slippage_coefficient', 1.0),
+                                settings.get('commission_rate', 0.0)
                             )
                             summary_report = report_generator.generate_summary_report(daily_trades_df)
                             
@@ -891,6 +1257,24 @@ elif section == "📈 Результаты":
                         f"{years_str} лет",
                         delta=f"{report['total_trading_days']} дней"
                     )
+                
+                # Max Drawdown метрика
+                dd_info = report.get('max_drawdown', {})
+                if dd_info and dd_info.get('max_drawdown_abs', 0) > 0:
+                    col_dd1, col_dd2, col_dd3 = st.columns(3)
+                    with col_dd1:
+                        st.metric(
+                            "📉 Max Drawdown",
+                            f"{dd_info['max_drawdown']:.2f}R"
+                        )
+                    with col_dd2:
+                        st.metric(
+                            "Пик → Дно",
+                            f"{dd_info['peak_value']:.2f}R → {dd_info['trough_value']:.2f}R"
+                        )
+                    with col_dd3:
+                        recovered = "Да ✅" if dd_info.get('recovery_index') is not None else "Нет ❌"
+                        st.metric("Восстановление", recovered)
                 
                 # График накопительного R
                 st.markdown("### 📈 Накопительный R-результат")
@@ -1316,12 +1700,13 @@ elif section == "🔧 Оптимизация":
         with col1:
             optimization_target = st.selectbox(
                 "Цель оптимизации",
-                options=['max_total_r', 'max_days_above_threshold'],
+                options=['max_total_r', 'max_r_dd_ratio', 'max_r_minus_dd'],
                 format_func=lambda x: {
                     'max_total_r': '📈 Максимальный суммарный R',
-                    'max_days_above_threshold': '💰 Максимум дней с R > 0.35'
+                    'max_r_dd_ratio': '⚖️ Баланс R / Max Drawdown (Calmar)',
+                    'max_r_minus_dd': '🛡️ R minus 2*MaxDrawdown (защитный)'
                 }[x],
-                help="Выберите метрику для оптимизации"
+                help="Calmar = TotalR / |MaxDD|. Защитный = TotalR - 2*|MaxDD|"
             )
         
         with col2:
@@ -1329,6 +1714,44 @@ elif section == "🔧 Оптимизация":
                 "Использовать параллельную обработку",
                 value=False,
                 help="Ускоряет оптимизацию при большом количестве комбинаций (> 100)"
+            )
+        
+        st.markdown("---")
+        use_time_optimization = st.checkbox(
+            "🕐 Оптимизация времени разделения Блок/Сессия",
+            value=False,
+            help="Перебирает время разделения block_end = session_start"
+        )
+        
+        if use_time_optimization:
+            st.info("block_end и session_start = одно время (точка разделения). Перебираются все часы. Для каждого запускается полный перебор TP/SL.")
+            tcol1, tcol2, tcol3, tcol4 = st.columns(4)
+            with tcol1:
+                time_block_start = st.text_input(
+                    "Начало БЛОКА (UTC)", value="00:00",
+                    key="time_opt_block_start"
+                )
+            with tcol2:
+                time_session_end = st.text_input(
+                    "Конец СЕССИИ (UTC)", value="20:00",
+                    key="time_opt_session_end"
+                )
+            with tcol3:
+                time_split_min = st.number_input(
+                    "Разделение от (час)",
+                    min_value=1, max_value=23, value=3, step=1,
+                    key="time_opt_split_min"
+                )
+            with tcol4:
+                time_split_max = st.number_input(
+                    "Разделение до (час)",
+                    min_value=1, max_value=23, value=18, step=1,
+                    key="time_opt_split_max"
+                )
+            
+            time_from_prev_day = st.checkbox(
+                "БЛОК начнётся с предыдущего дня",
+                value=False, key="time_opt_from_prev"
             )
         
         st.markdown("### 📊 Диапазоны параметров")
@@ -1401,31 +1824,41 @@ elif section == "🔧 Оптимизация":
         total_combinations = tp_count * sl_count
         
         # Информация о комбинациях
-        st.info(f"""
-        📊 **Параметры оптимизации:**
-        - TP значений: {tp_count} (от {tp_min} до {tp_max} с шагом {tp_step})
-        - SL значений: {sl_count} (от {sl_min} до {sl_max} с шагом {sl_step})
-        - **Всего комбинаций: {total_combinations}**
-        - Примерное время: {total_combinations * 0.5:.1f} - {total_combinations * 2:.1f} секунд
-        """)
+        if use_time_optimization:
+            time_points = len(range(time_split_min, time_split_max + 1))
+            total_all = total_combinations * time_points
+            st.info(f"""
+            📊 **Параметры оптимизации:**
+            - TP значений: {tp_count} | SL значений: {sl_count} | **TP/SL комбинаций: {total_combinations}**
+            - 🕐 Временных точек: {time_points} ({time_split_min}:00 — {time_split_max}:00)
+            - **Итого прогонов: {total_all}**
+            - Примерное время: {total_all * 0.5:.0f} - {total_all * 2:.0f} секунд
+            """)
+        else:
+            st.info(f"""
+            📊 **Параметры оптимизации:**
+            - TP значений: {tp_count} (от {tp_min} до {tp_max} с шагом {tp_step})
+            - SL значений: {sl_count} (от {sl_min} до {sl_max} с шагом {sl_step})
+            - **Всего комбинаций: {total_combinations}**
+            - Примерное время: {total_combinations * 0.5:.1f} - {total_combinations * 2:.1f} секунд
+            """)
         
         # Кнопка запуска оптимизации
-        if st.button("🚀 Запустить оптимизацию", type="primary", use_container_width=True):
-            if total_combinations > 1000:
-                st.warning("⚠️ Большое количество комбинаций может занять длительное время")
+        if st.button("🚀 Запустить оптимизацию", type="primary", 
+                    disabled=st.session_state.get('optimization_running', False)):
             
             st.session_state.optimization_running = True
+            st.session_state.optimization_results = None
+            st.session_state.time_optimization_results = None
             
-            # Прогресс-бар
             progress_bar = st.progress(0)
             status_text = st.empty()
             
             def update_progress(percent):
-                progress_bar.progress(percent / 100)
-                status_text.text(f"Обработано: {percent}%")
+                progress_bar.progress(min(percent, 100) / 100)
+                status_text.text(f"Обработано: {min(percent, 100)}%")
             
             try:
-                # Создание экземпляров классов
                 data_processor = DataProcessor(
                     st.session_state.price_data,
                     st.session_state.news_data
@@ -1434,45 +1867,127 @@ elif section == "🔧 Оптимизация":
                 r_calculator = RCalculator()
                 optimizer = TradingOptimizer(data_processor, analyzer, r_calculator)
                 
-                # Подготовка настроек
                 settings = st.session_state.current_settings.copy()
                 
-                # Преобразование времен
-                settings['block_start'] = datetime.strptime(settings['block_start'], '%H:%M').time()
-                settings['block_end'] = datetime.strptime(settings['block_end'], '%H:%M').time()
-                settings['session_start'] = datetime.strptime(settings['session_start'], '%H:%M').time()
-                settings['session_end'] = datetime.strptime(settings['session_end'], '%H:%M').time()
-                settings['start_date'] = datetime.strptime(settings['start_date'], '%Y-%m-%d').date()
-                settings['end_date'] = datetime.strptime(settings['end_date'], '%Y-%m-%d').date()
+                for tkey in ['block_start', 'block_end', 'session_start', 'session_end']:
+                    if isinstance(settings.get(tkey), str):
+                        settings[tkey] = datetime.strptime(settings[tkey], '%H:%M').time()
+                for dkey in ['start_date', 'end_date']:
+                    if isinstance(settings.get(dkey), str):
+                        settings[dkey] = datetime.strptime(settings[dkey], '%Y-%m-%d').date()
                 
-                # Запуск оптимизации
-                with st.spinner(f"🔄 Оптимизация {total_combinations} комбинаций..."):
-                    optimization_results = optimizer.optimize_parameters(
-                        settings=settings,
-                        tp_range=(tp_min, tp_max, tp_step),
-                        sl_range=(sl_min, sl_max, sl_step),
-                        optimization_target=optimization_target,
-                        progress_callback=update_progress,
-                        use_parallel=use_parallel
-                    )
-                
-                # Сохранение результатов
-                st.session_state.optimization_results = optimization_results
-                st.session_state.optimization_running = False
-                # КРИТИЧЕСКИ ВАЖНО: Сохраняем кеш оптимизатора
-                st.session_state.optimizer_cache = optimizer._results_cache.copy()
-                st.session_state.optimizer_instance = optimizer
-                
-                progress_bar.progress(100)
-                status_text.text("✅ Оптимизация завершена!")
-                st.success(f"✅ Оптимизация завершена за {optimization_results['optimization_details']['computation_time']:.1f} сек")
-                st.rerun()
+                if use_time_optimization:
+                    with st.spinner(f"🔄 Оптимизация времени ({time_split_min}:00—{time_split_max}:00) x {total_combinations} TP/SL..."):
+                        time_results = optimizer.optimize_time_and_params(
+                            settings=settings,
+                            block_start_fixed=time_block_start,
+                            session_end_fixed=time_session_end,
+                            split_hour_min=time_split_min,
+                            split_hour_max=time_split_max,
+                            split_hour_step=1,
+                            tp_range=(tp_min, tp_max, tp_step),
+                            sl_range=(sl_min, sl_max, sl_step),
+                            optimization_target=optimization_target,
+                            from_previous_day=time_from_prev_day,
+                            progress_callback=update_progress
+                        )
+                    
+                    st.session_state.time_optimization_results = time_results
+                    st.session_state.optimization_running = False
+                    progress_bar.progress(100)
+                    status_text.text("✅ Оптимизация завершена!")
+                    st.success(f"✅ Завершено за {time_results['optimization_details']['computation_time']:.1f} сек")
+                    st.rerun()
+                else:
+                    with st.spinner(f"🔄 Оптимизация {total_combinations} комбинаций..."):
+                        optimization_results = optimizer.optimize_parameters(
+                            settings=settings,
+                            tp_range=(tp_min, tp_max, tp_step),
+                            sl_range=(sl_min, sl_max, sl_step),
+                            optimization_target=optimization_target,
+                            progress_callback=update_progress,
+                            use_parallel=use_parallel
+                        )
+                    
+                    st.session_state.optimization_results = optimization_results
+                    st.session_state.optimization_running = False
+                    st.session_state.optimizer_cache = optimizer._results_cache.copy()
+                    st.session_state.optimizer_instance = optimizer
+                    progress_bar.progress(100)
+                    status_text.text("✅ Оптимизация завершена!")
+                    st.success(f"✅ Завершено за {optimization_results['optimization_details']['computation_time']:.1f} сек")
+                    st.rerun()
                 
             except Exception as e:
                 st.session_state.optimization_running = False
                 st.error(f"❌ Ошибка при оптимизации: {str(e)}")
+                import traceback
+                st.code(traceback.format_exc())
         
-        # Отображение результатов оптимизации
+        # Результаты оптимизации ВРЕМЕНИ
+        if st.session_state.get('time_optimization_results') is not None:
+            st.markdown("---")
+            st.markdown("## 🕐 Результаты оптимизации времени")
+            
+            time_res = st.session_state.time_optimization_results
+            best = time_res['best_overall']
+            
+            st.markdown("### 🏆 Лучшее временное окно")
+            bcol1, bcol2, bcol3, bcol4 = st.columns(4)
+            with bcol1:
+                st.metric("Блок", best['block'])
+            with bcol2:
+                st.metric("Сессия", best['session'])
+            with bcol3:
+                st.metric("Лучший TP", f"{best['best_tp']:.1f}" if best.get('best_tp') else "-")
+            with bcol4:
+                st.metric("Лучший SL", f"{best['best_sl']:.1f}" if best.get('best_sl') else "-")
+            
+            mcol1, mcol2, mcol3 = st.columns(3)
+            with mcol1:
+                st.metric("Метрика", f"{best['best_metric']:.2f}" if best.get('best_metric') else "-")
+            with mcol2:
+                st.metric("Total R", f"{best.get('best_total_r', '-')}")
+            with mcol3:
+                st.metric("Win Rate", f"{best.get('best_win_rate', '-')}%")
+            
+            st.markdown("### 📊 Все временные окна")
+            time_table_data = []
+            for tr in time_res['all_time_results']:
+                time_table_data.append({
+                    'Час': tr['split_time'],
+                    'Блок': tr['block'],
+                    'Сессия': tr['session'],
+                    'Метрика': round(tr['best_metric'], 2) if tr.get('best_metric') else 0,
+                    'TP': tr.get('best_tp'),
+                    'SL': tr.get('best_sl'),
+                    'Total R': tr.get('best_total_r', '-'),
+                    'Сделок': tr.get('best_trades', '-'),
+                    'Win%': tr.get('best_win_rate', '-')
+                })
+            
+            time_df = pd.DataFrame(time_table_data)
+            st.dataframe(time_df, use_container_width=True)
+            
+            if len(time_table_data) > 1:
+                fig = go.Figure()
+                fig.add_trace(go.Bar(
+                    x=[t['Час'] for t in time_table_data],
+                    y=[t['Метрика'] for t in time_table_data],
+                    marker_color=['gold' if t['Час'] == best['split_time'] else 'steelblue' for t in time_table_data]
+                ))
+                fig.update_layout(
+                    title="Метрика по временным окнам",
+                    xaxis_title="Время разделения (block_end = session_start)",
+                    yaxis_title="Метрика",
+                    template="plotly_dark"
+                )
+                st.plotly_chart(fig, use_container_width=True)
+            
+            with st.expander("📋 Детали"):
+                st.json(time_res['optimization_details'])
+        
+        # Отображение результатов стандартной оптимизации
         if st.session_state.optimization_results is not None:
             st.markdown("---")
             st.markdown("## 📊 Результаты оптимизации")
@@ -1726,7 +2241,7 @@ st.markdown("---")
 st.markdown(
     """
     <div style='text-align: center; color: #666;'>
-        Trading Analyzer v10.0 | R-ориентированная система анализа с оптимизацией
+        Trading Analyzer v11.0 | R-ориентированная система анализа с оптимизацией
     </div>
     """,
     unsafe_allow_html=True

@@ -111,7 +111,8 @@ class TradingAnalyzer:
                 session_candles,
                 block_range,
                 start_position,
-                settings['use_return_mode']
+                settings['use_return_mode'],
+                limit_only_entry=settings.get('limit_only_entry', False)
             )
             
             # Базовый результат
@@ -211,7 +212,8 @@ class TradingAnalyzer:
             return None
     
     def determine_entry_type(self, session_candles: pd.DataFrame, block_range: Dict, 
-                           start_position: str, use_return_mode: bool) -> Dict:
+                           start_position: str, use_return_mode: bool,
+                           limit_only_entry: bool = False) -> Dict:
         """
         Определяет тип входа в позицию согласно бизнес-логике.
         
@@ -220,12 +222,17 @@ class TradingAnalyzer:
             block_range: Словарь с границами блока
             start_position: Позиция на старте ('INSIDE', 'ABOVE', 'BELOW')
             use_return_mode: Режим работы (False=по-тренду, True=возвратный)
+            limit_only_entry: Если True, ENTRY-типы требуют пересечения границы + возврата
         
         Returns:
             Словарь с информацией о входе
         """
         range_high = block_range['range_high']
         range_low = block_range['range_low']
+        
+        # Флаги пересечения границ для limit_only_entry
+        high_crossed = False
+        low_crossed = False
         
         # Проходим по свечам сессии
         for idx, candle in session_candles.iterrows():
@@ -235,10 +242,33 @@ class TradingAnalyzer:
             touches_high = self.check_boundary_touch(candle, range_high)
             touches_low = self.check_boundary_touch(candle, range_low)
             
+            # Обновляем флаги пересечения для limit_only_entry
+            if limit_only_entry and start_position == 'INSIDE':
+                if candle['high'] > range_high:
+                    high_crossed = True
+                if candle['low'] < range_low:
+                    low_crossed = True
+            
             # РЕЖИМ ПО-ТРЕНДУ
             if not use_return_mode:
                 if start_position == 'INSIDE':
-                    if touches_high:
+                    if limit_only_entry:
+                        # Лимитный вход: пересечение границы → возврат → вход
+                        if high_crossed and touches_high and candle['low'] < range_high:
+                            return {
+                                'entry_type': 'ENTRY_LONG_TREND',
+                                'entry_price': range_high,
+                                'entry_time': candle['timestamp'],
+                                'entry_candle_index': candle_idx
+                            }
+                        elif low_crossed and touches_low and candle['high'] > range_low:
+                            return {
+                                'entry_type': 'ENTRY_SHORT_TREND',
+                                'entry_price': range_low,
+                                'entry_time': candle['timestamp'],
+                                'entry_candle_index': candle_idx
+                            }
+                    elif touches_high:
                         return {
                             'entry_type': 'ENTRY_LONG_TREND',
                             'entry_price': range_high,
@@ -274,7 +304,22 @@ class TradingAnalyzer:
             # ВОЗВРАТНЫЙ РЕЖИМ
             else:
                 if start_position == 'INSIDE':
-                    if touches_high:
+                    if limit_only_entry:
+                        if high_crossed and touches_high and candle['low'] < range_high:
+                            return {
+                                'entry_type': 'ENTRY_SHORT_REVERSE',
+                                'entry_price': range_high,
+                                'entry_time': candle['timestamp'],
+                                'entry_candle_index': candle_idx
+                            }
+                        elif low_crossed and touches_low and candle['high'] > range_low:
+                            return {
+                                'entry_type': 'ENTRY_LONG_REVERSE',
+                                'entry_price': range_low,
+                                'entry_time': candle['timestamp'],
+                                'entry_candle_index': candle_idx
+                            }
+                    elif touches_high:
                         return {
                             'entry_type': 'ENTRY_SHORT_REVERSE',
                             'entry_price': range_high,

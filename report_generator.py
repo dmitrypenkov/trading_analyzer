@@ -34,19 +34,26 @@ class ReportGenerator:
         logger.info("ReportGenerator инициализирован")
     
     def prepare_daily_trades(self, analysis_results: List[Dict], 
-                           tp_coefficient: float = 0.9) -> pd.DataFrame:
+                           tp_coefficient: float = 0.9,
+                           sl_slippage_coefficient: float = 1.0,
+                           commission_rate: float = 0.0) -> pd.DataFrame:
         """
         Преобразует результаты анализа в DataFrame для отображения.
         
         Args:
             analysis_results: Список результатов анализа из analyzer
             tp_coefficient: Коэффициент для TP сделок
+            sl_slippage_coefficient: Коэффициент проскальзывания для SL
+            commission_rate: Ставка комиссии за сторону
         
         Returns:
             DataFrame с подготовленными данными для отображения
         """
         # Добавляем R-результаты
-        trades_with_r = self.r_calculator.add_r_to_trades(analysis_results, tp_coefficient)
+        trades_with_r = self.r_calculator.add_r_to_trades(
+            analysis_results, tp_coefficient,
+            sl_slippage_coefficient, commission_rate
+        )
         
         # Создаем список строк для DataFrame
         rows = []
@@ -271,7 +278,13 @@ class ReportGenerator:
                 'dates_series': [],
                 'total_tp': 0,  # Добавлено для правильного подсчета win_rate
                 'total_sl': 0,
-                'total_be': 0
+                'total_be': 0,
+                'max_drawdown': {
+                    'max_drawdown': 0.0, 'max_drawdown_abs': 0.0,
+                    'peak_index': 0, 'trough_index': 0,
+                    'peak_value': 0.0, 'trough_value': 0.0,
+                    'recovery_index': None
+                }
             }
         
         # Определяем период
@@ -325,6 +338,9 @@ class ReportGenerator:
             cumulative_r_series = []
             dates_series = []
         
+        # Расчет Max Drawdown
+        drawdown_info = self.r_calculator.calculate_max_drawdown(cumulative_r_series)
+        
         # Расчет правильного количества лет в периоде
         years_diff = (period_end - period_start).days / 365.25
         
@@ -348,7 +364,8 @@ class ReportGenerator:
             'dates_series': dates_series,
             'total_tp': total_tp,  # Добавлено для использования в app.py
             'total_sl': total_sl,
-            'total_be': total_be
+            'total_be': total_be,
+            'max_drawdown': drawdown_info  # Max Drawdown информация
         }
         
         return report

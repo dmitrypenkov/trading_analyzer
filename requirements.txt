@@ -19,3 +19,9 @@ plotly>=5.18.0
 # flake8>=6.0.0
 
 xlsxwriter
+
+# Yahoo Finance data sync
+yfinance>=0.2.30
+
+# ForexFactory HTML parser
+beautifulsoup4>=4.12.0
