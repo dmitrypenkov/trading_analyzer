@@ -4,7 +4,6 @@
 """
 
 import pandas as pd
-import numpy as np
 from datetime import datetime, date, time, timedelta
 from typing import Dict, List, Optional, Tuple
 from data_processor import DataProcessor

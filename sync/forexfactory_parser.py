@@ -98,7 +98,17 @@ def parse_html_content(html_content: Union[bytes, str], filename: str = "") -> L
             # Обновляем текущее время
             if time_text and time_text not in ["", "All Day", "Day"]:
                 if ":" in time_text:
-                    current_time = time_text
+                    # Обработка AM/PM формата (ForexFactory может отдавать "12:30pm")
+                    t = time_text.strip().lower()
+                    if t.endswith('am') or t.endswith('pm'):
+                        try:
+                            from datetime import datetime as _dt
+                            parsed = _dt.strptime(t, "%I:%M%p")
+                            current_time = parsed.strftime("%H:%M")
+                        except ValueError:
+                            current_time = time_text
+                    else:
+                        current_time = time_text
                 else:
                     current_time = "00:00"
             elif time_text in ["All Day", "Day"]:

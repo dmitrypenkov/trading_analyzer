@@ -71,9 +71,9 @@ class YahooFinanceSyncer:
             df = pd.DataFrame()
             df['timestamp'] = yf_df.index
 
-            # Удаляем timezone info (конвертация в naive UTC)
+            # Конвертируем в UTC, затем убираем timezone info
             if df['timestamp'].dt.tz is not None:
-                df['timestamp'] = df['timestamp'].dt.tz_localize(None)
+                df['timestamp'] = df['timestamp'].dt.tz_convert('UTC').dt.tz_localize(None)
 
             df['open'] = yf_df['Open'].values
             df['high'] = yf_df['High'].values

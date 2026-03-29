@@ -192,7 +192,7 @@ class TradingOptimizer:
         cache_key = f"{tp_multiplier}_{sl_multiplier}"
         with self._cache_lock:
             if cache_key in self._results_cache:
-                cached_result = self._results_cache[cache_key].copy()
+                cached_result = deepcopy(self._results_cache[cache_key])
                 cached_result['metric_value'] = self.calculate_metric(
                     cached_result['analysis_results'], 
                     optimization_target,

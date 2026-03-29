@@ -4,8 +4,8 @@
 
 DEFAULT_INSTRUMENTS = [
     {"symbol": "EURUSD",  "yahoo_ticker": "EURUSD=X", "asset_class": "forex",     "precision": 5},
-    {"symbol": "USDJPY",  "yahoo_ticker": "JPY=X",    "asset_class": "forex",     "precision": 3},
-    {"symbol": "USDCHF",  "yahoo_ticker": "CHF=X",    "asset_class": "forex",     "precision": 5},
+    {"symbol": "USDJPY",  "yahoo_ticker": "USDJPY=X", "asset_class": "forex",     "precision": 3},
+    {"symbol": "USDCHF",  "yahoo_ticker": "USDCHF=X", "asset_class": "forex",     "precision": 5},
     {"symbol": "XAUUSD",  "yahoo_ticker": "GC=F",     "asset_class": "commodity", "precision": 3},
     {"symbol": "XAGUSD",  "yahoo_ticker": "SI=F",     "asset_class": "commodity", "precision": 3},
     {"symbol": "SP500",   "yahoo_ticker": "^GSPC",    "asset_class": "index",     "precision": 2},

@@ -4,7 +4,6 @@
 """
 
 import pandas as pd
-import numpy as np
 from datetime import datetime, date, time, timedelta
 from typing import Dict, List, Optional, Union
 import logging
@@ -262,14 +261,14 @@ class DataProcessor:
             if len(high_impact_news) == 0:
                 return False
             
-            # Если указаны валюты для фильтрации
+            # Если указаны валюты для фильтрации (case-insensitive)
             if currency_filter and len(currency_filter) > 0:
-                # Проверяем наличие колонки Currency или currency
+                filter_upper = [c.upper() for c in currency_filter]
                 if 'Currency' in high_impact_news.columns:
-                    high_impact_news = high_impact_news[high_impact_news['Currency'].isin(currency_filter)]
+                    high_impact_news = high_impact_news[high_impact_news['Currency'].str.upper().isin(filter_upper)]
                 elif 'currency' in high_impact_news.columns:
-                    high_impact_news = high_impact_news[high_impact_news['currency'].isin(currency_filter)]
-            
+                    high_impact_news = high_impact_news[high_impact_news['currency'].str.upper().isin(filter_upper)]
+
             # Если после фильтрации остались новости - день блокируется
             if len(high_impact_news) > 0:
                 logger.info(f"День {check_date} имеет {len(high_impact_news)} красных новостей")
@@ -309,13 +308,13 @@ class DataProcessor:
                 self.news_data['impact'].isin(impact_filter)
             ]
             
-            # Добавляем фильтрацию по валютам
+            # Добавляем фильтрацию по валютам (case-insensitive)
             if currency_filter and len(currency_filter) > 0:
-                # Проверяем наличие колонки Currency
+                filter_upper = [c.upper() for c in currency_filter]
                 if 'Currency' in filtered_news.columns:
-                    filtered_news = filtered_news[filtered_news['Currency'].isin(currency_filter)]
+                    filtered_news = filtered_news[filtered_news['Currency'].str.upper().isin(filter_upper)]
                 elif 'currency' in filtered_news.columns:
-                    filtered_news = filtered_news[filtered_news['currency'].isin(currency_filter)]
+                    filtered_news = filtered_news[filtered_news['currency'].str.upper().isin(filter_upper)]
             
             # Проверяем попадание в окно
             news_in_window = filtered_news[
@@ -375,31 +374,6 @@ class DataProcessor:
         except Exception as e:
             logger.error(f"Ошибка при определении стартовой позиции: {str(e)}")
             return 'INSIDE'  # По умолчанию
-    
-    def get_price_at_time(self, target_time: datetime) -> Optional[float]:
-        """
-        Вспомогательный метод для получения цены на конкретное время.
-        
-        Args:
-            target_time: Время для которого нужна цена
-        
-        Returns:
-            Цена close ближайшей свечи или None
-        """
-        try:
-            # Находим ближайшую свечу
-            time_diff = abs(self.price_data['timestamp'] - target_time)
-            closest_idx = time_diff.idxmin()
-            
-            # Проверяем что разница не слишком большая (макс 15 минут)
-            if time_diff[closest_idx] > timedelta(minutes=15):
-                return None
-            
-            return float(self.price_data.loc[closest_idx, 'close'])
-            
-        except Exception as e:
-            logger.error(f"Ошибка при получении цены для {target_time}: {str(e)}")
-            return None
     
     def validate_data_quality(self) -> Dict[str, Union[bool, str, int]]:
         """

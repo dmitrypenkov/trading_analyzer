@@ -5,7 +5,7 @@
 
 import pandas as pd
 import logging
-from datetime import date, datetime
+from datetime import date, datetime, time, timedelta
 from typing import Optional, List, Tuple
 
 from db.connection import get_connection
@@ -119,9 +119,9 @@ class CandleRepository:
             query += " AND timestamp >= ?"
             params.append(str(start_date))
         if end_date:
-            # end_date включительно — берём до конца дня
+            # end_date включительно — берём до начала следующего дня
             query += " AND timestamp < ?"
-            end_dt = datetime.combine(end_date, datetime.max.time())
+            end_dt = datetime.combine(end_date + timedelta(days=1), time(0, 0))
             params.append(end_dt.strftime('%Y-%m-%d %H:%M:%S'))
 
         query += " ORDER BY timestamp"

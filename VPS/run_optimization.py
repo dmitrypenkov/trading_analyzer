@@ -74,10 +74,10 @@ def load_config(config_path: str) -> dict:
         config = json.load(f)
     
     # Обязательные поля
-    required = ['price_data_path', 'settings']
-    for key in required:
-        if key not in config:
-            raise ValueError(f"Отсутствует обязательное поле: {key}")
+    if 'settings' not in config:
+        raise ValueError("Отсутствует обязательное поле: settings")
+    if not config.get('instrument') and not config.get('price_data_path'):
+        raise ValueError("Укажите 'instrument' (загрузка из БД) или 'price_data_path' (загрузка из CSV)")
     
     # Дефолты для оптимизации
     opt = config.setdefault('optimization', {})

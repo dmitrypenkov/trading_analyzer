@@ -353,7 +353,7 @@ class ReportGenerator:
             'total_executed_trades': total_executed,
             'total_r': round(total_r, 2),
             'average_r_per_year': round(total_r / len(years), 2) if years else 0.0,
-            'average_r_per_month': round(total_r / ((period_end - period_start).days / 30), 2),
+            'average_r_per_month': round(total_r / max(sum(1 for yr in yearly_reports for m in yr.get('months_data', []) if m.get('trading_days', 0) > 0), 1), 2),
             'average_r_per_trade': round(total_r / total_executed, 2) if total_executed > 0 else 0.0,
             'best_year': best_year,
             'best_year_r': round(best_year_r, 2) if best_year else 0.0,

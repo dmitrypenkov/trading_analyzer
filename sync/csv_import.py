@@ -63,10 +63,10 @@ class CsvImporter:
             # Оставляем только нужные колонки
             df = df[required].copy()
 
-            # Парсинг timestamps и удаление timezone
+            # Парсинг timestamps и конвертация в naive UTC
             df['timestamp'] = pd.to_datetime(df['timestamp'])
             if df['timestamp'].dt.tz is not None:
-                df['timestamp'] = df['timestamp'].dt.tz_localize(None)
+                df['timestamp'] = df['timestamp'].dt.tz_convert('UTC').dt.tz_localize(None)
 
             df = df.sort_values('timestamp')
             df = df.dropna(subset=['open', 'high', 'low', 'close'])
@@ -131,10 +131,10 @@ class CsvImporter:
                     error=f"Отсутствуют колонки: {missing}"
                 )
 
-            # Парсинг timestamps
+            # Парсинг timestamps и конвертация в naive UTC
             df['timestamp'] = pd.to_datetime(df['timestamp'])
             if df['timestamp'].dt.tz is not None:
-                df['timestamp'] = df['timestamp'].dt.tz_localize(None)
+                df['timestamp'] = df['timestamp'].dt.tz_convert('UTC').dt.tz_localize(None)
 
             df = df.sort_values('timestamp')
 
