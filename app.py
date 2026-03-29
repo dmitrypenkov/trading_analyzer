@@ -177,10 +177,13 @@ if section == "📂 Данные":
                 st.caption(f"Доступные данные: {min_date} — {max_date}")
 
                 col_d1, col_d2 = st.columns(2)
+                # По умолчанию с 2025-01-01 до сегодня
+                default_start = max(min_date, date(2025, 1, 1))
+                default_end = min(max_date, date.today())
                 with col_d1:
-                    load_start = st.date_input("Начало", value=min_date, min_value=min_date, max_value=max_date, key="db_start_date")
+                    load_start = st.date_input("Начало", value=default_start, min_value=min_date, max_value=max_date, key="db_start_date")
                 with col_d2:
-                    load_end = st.date_input("Конец", value=max_date, min_value=min_date, max_value=max_date, key="db_end_date")
+                    load_end = st.date_input("Конец", value=default_end, min_value=min_date, max_value=max_date, key="db_end_date")
 
                 # Точность отображения
                 precision = st.number_input(
@@ -644,35 +647,43 @@ elif section == "⚙️ Настройки":
                     st.info("⚠️ БЛОК начнется с предыдущего дня в указанное время")
                 # ==================================================================
                 
-                st.markdown("**📏 Фильтры размера диапазона**")
-                # Определяем точность и значения по умолчанию
-                precision = st.session_state.get('price_precision', 2)
-                if precision <= 2:
-                    default_min_range = 100.0
-                    default_max_range = 500.0
-                else:
-                    default_min_range = float(10**(-precision+2))
-                    default_max_range = float(10**(-precision+3))
-                
-                min_range_size = st.number_input(
-                    "Минимальный размер диапазона",
-                    min_value=0.0,
-                    value=default_min_range,
-                    step=float(10**(-precision)),
-                    format=f"%.{precision}f",
-                    help="Минимальный размер диапазона БЛОКА в единицах цены",
-                    key="min_range_size"
+                use_range_filter = st.checkbox(
+                    "📏 Фильтры размера диапазона",
+                    value=False,
+                    help="Включить фильтрацию дней по размеру блока",
+                    key="use_range_filter"
                 )
-                
-                max_range_size = st.number_input(
-                    "Максимальный размер диапазона",
-                    min_value=0.0,
-                    value=default_max_range,
-                    step=float(10**(-precision)),
-                    format=f"%.{precision}f",
-                    help="Максимальный размер диапазона БЛОКА в единицах цены",
-                    key="max_range_size"
-                )
+
+                min_range_size = 0.0
+                max_range_size = 999999.0
+                if use_range_filter:
+                    precision = st.session_state.get('price_precision', 2)
+                    if precision <= 2:
+                        default_min_range = 100.0
+                        default_max_range = 500.0
+                    else:
+                        default_min_range = float(10**(-precision+2))
+                        default_max_range = float(10**(-precision+3))
+
+                    min_range_size = st.number_input(
+                        "Минимальный размер диапазона",
+                        min_value=0.0,
+                        value=default_min_range,
+                        step=float(10**(-precision)),
+                        format=f"%.{precision}f",
+                        help="Минимальный размер диапазона БЛОКА в единицах цены",
+                        key="min_range_size"
+                    )
+
+                    max_range_size = st.number_input(
+                        "Максимальный размер диапазона",
+                        min_value=0.0,
+                        value=default_max_range,
+                        step=float(10**(-precision)),
+                        format=f"%.{precision}f",
+                        help="Максимальный размер диапазона БЛОКА в единицах цены",
+                        key="max_range_size"
+                    )
                
                 
             with col2:
@@ -985,21 +996,26 @@ elif section == "⚙️ Настройки":
             
             st.markdown("---")
             
-            # Период анализа
+            # Период анализа — по умолчанию совпадает с загруженными данными
             st.markdown("### 📅 Период анализа")
+            if st.session_state.price_file_info:
+                _default_start = datetime.strptime(st.session_state.price_file_info['start_date'][:10], '%Y-%m-%d').date()
+                _default_end = datetime.strptime(st.session_state.price_file_info['end_date'][:10], '%Y-%m-%d').date()
+            else:
+                _default_start = date(2025, 1, 1)
+                _default_end = date.today()
             col1, col2 = st.columns(2)
             with col1:
-                # Изменено значение по умолчанию для более широкого периода
                 start_date = st.date_input(
                     "Начальная дата анализа",
-                    value=datetime.now().date() - timedelta(days=730),  # 2 года назад
+                    value=_default_start,
                     help="Начало периода для анализа",
                     key="start_date"
                 )
             with col2:
                 end_date = st.date_input(
                     "Конечная дата анализа",
-                    value=datetime.now().date(),
+                    value=_default_end,
                     help="Конец периода для анализа",
                     key="end_date"
                 )
