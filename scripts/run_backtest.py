@@ -58,7 +58,7 @@ DEFAULTS = {
     "fixed_sl_distance": 0,
     "use_base_sl_mode": False,
     "rr_ratio": 1.5,
-    "use_news_filter": False,
+    "use_news_filter": True,
     "news_impact_filter": ["high"],
     "news_buffer_minutes": 30,
     "news_currency_filter": [],
