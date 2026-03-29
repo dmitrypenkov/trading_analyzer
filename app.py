@@ -552,10 +552,12 @@ if section == "📂 Данные":
                                                           value=edit_instr.get('price_precision', 2),
                                                           key="edit_instr_precision")
 
+                    _edit_prec = edit_instr.get('price_precision', 2)
                     edit_base_sl = st.number_input("Base SL (для режима Base SL + RR)",
                                                      min_value=0.0,
                                                      value=float(edit_instr.get('base_sl', 0)),
-                                                     step=0.01,
+                                                     step=float(10 ** (-_edit_prec)),
+                                                     format=f"%.{_edit_prec}f",
                                                      key="edit_instr_base_sl")
 
                     col_eb1, col_eb2 = st.columns(2)
@@ -795,11 +797,13 @@ elif section == "⚙️ Настройки":
                     else:
                         st.warning("Сначала загрузите данные инструмента")
 
+                    _bsl_precision = _instr.get('price_precision', 2) if _instr else st.session_state.get('price_precision', 2)
                     base_sl_value = st.number_input(
                         "Базовый размер SL",
                         min_value=0.0,
                         value=float(base_sl_value),
-                        step=0.01,
+                        step=float(10 ** (-_bsl_precision)),
+                        format=f"%.{_bsl_precision}f",
                         help="Фиксированная часть SL для инструмента (в единицах цены)",
                         key="base_sl_input"
                     )
