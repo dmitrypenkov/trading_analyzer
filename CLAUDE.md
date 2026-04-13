@@ -6,6 +6,35 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A backtesting system for range breakout/reversion trading strategies. Written in Python + Streamlit. Analyzes historical OHLC data, identifies entries from range boundaries, simulates trade execution, and measures results in R-units (1R = stop-loss size). Documentation and UI are in Russian.
 
+## ⚠️ КРИТИЧЕСКИ ВАЖНО: КАК ЗАПУСКАТЬ PYTHON
+
+**НИКОГДА** не использовать `source venv_trading/bin/activate && python -` для запуска скриптов.
+В фоновых процессах (Bash tool) `source activate` НЕ работает — запускается Homebrew Python
+(`/usr/local/Cellar/python@3.11/...`), который работает в 100x медленнее.
+
+**ВСЕГДА** использовать полный путь к venv Python:
+
+```bash
+# ПРАВИЛЬНО — всегда так:
+VENV_PY=/Volumes/WD_Passport/Trading/trading_analyzer/venv_trading/bin/python
+$VENV_PY scripts/run_backtest.py '...'
+$VENV_PY - <<'EOF'
+...код...
+EOF
+
+# НЕПРАВИЛЬНО — НИКОГДА не делать так:
+# source venv_trading/bin/activate && python -
+# python scripts/...
+```
+
+Проверить что используется правильный Python:
+```bash
+/Volumes/WD_Passport/Trading/trading_analyzer/venv_trading/bin/python --version
+# Должно быть: Python 3.11.x из venv, НЕ из /usr/local/Cellar/
+```
+
+---
+
 ## Running
 
 ```bash

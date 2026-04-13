@@ -4,6 +4,7 @@
 """
 
 import pandas as pd
+import numpy as np
 from datetime import datetime, date, time, timedelta
 from typing import Dict, List, Optional, Union
 import logging
@@ -54,7 +55,13 @@ class DataProcessor:
         # Добавляем вспомогательные колонки
         self.price_data['date'] = self.price_data['timestamp'].dt.date
         self.price_data['time'] = self.price_data['timestamp'].dt.time
-        
+
+        # Кешируем timestamps как numpy массив для быстрого бинарного поиска O(log n)
+        self._ts_values = self.price_data['timestamp'].values
+
+        # Кеш для предфильтрованных новостей (заполняется лениво в check_news_window)
+        self._news_filter_cache = {}
+
         # Обработка новостных данных
         self.news_data = None
         if news_data is not None:
@@ -117,13 +124,10 @@ class DataProcessor:
             block_start_dt = datetime.combine(block_start_date, block_start)
             block_end_dt = datetime.combine(date, block_end)
             
-            # Фильтруем свечи в диапазоне блока
-            mask = (
-                (self.price_data['timestamp'] >= block_start_dt) & 
-                (self.price_data['timestamp'] < block_end_dt)
-            )
-            
-            block_candles = self.price_data[mask]
+            # Фильтруем свечи в диапазоне блока — бинарный поиск O(log n)
+            s = np.searchsorted(self._ts_values, pd.Timestamp(block_start_dt).to_numpy())
+            e = np.searchsorted(self._ts_values, pd.Timestamp(block_end_dt).to_numpy())
+            block_candles = self.price_data.iloc[s:e]
             
             # Если недостаточно данных
             if len(block_candles) == 0:
@@ -173,13 +177,10 @@ class DataProcessor:
             if session_end <= session_start:
                 session_end_dt += timedelta(days=1)
             
-            # Фильтруем свечи в диапазоне сессии
-            mask = (
-                (self.price_data['timestamp'] >= session_start_dt) & 
-                (self.price_data['timestamp'] <= session_end_dt)
-            )
-            
-            session_candles = self.price_data[mask].copy()
+            # Фильтруем свечи в диапазоне сессии — бинарный поиск O(log n)
+            s = np.searchsorted(self._ts_values, pd.Timestamp(session_start_dt).to_numpy())
+            e = np.searchsorted(self._ts_values, pd.Timestamp(session_end_dt).to_numpy(), side='right')
+            session_candles = self.price_data.iloc[s:e].copy()
             
             if len(session_candles) == 0:
                 logger.warning(f"Нет данных для СЕССИИ {date} {session_start}-{session_end}")
@@ -207,27 +208,34 @@ class DataProcessor:
             Список дат для анализа
         """
         try:
+            cache_key = (start_date, end_date, tuple(sorted(trading_days)))
+            if not hasattr(self, '_trading_days_cache'):
+                self._trading_days_cache = {}
+            if cache_key in self._trading_days_cache:
+                return self._trading_days_cache[cache_key]
+
             # Генерируем все даты в диапазоне
             date_range = pd.date_range(start=start_date, end=end_date, freq='D')
-            
+
             # Фильтруем по дням недели
             trading_dates = [
-                d.date() for d in date_range 
+                d.date() for d in date_range
                 if d.weekday() in trading_days
             ]
-            
+
             # Дополнительно фильтруем по наличию данных
-            available_dates = self.price_data['date'].unique()
-            
+            available_dates = set(self.price_data['date'].unique())
+
             filtered_dates = [
-                d for d in trading_dates 
+                d for d in trading_dates
                 if d in available_dates
             ]
-            
+
             logger.info(f"Отфильтровано {len(filtered_dates)} торговых дней из {len(trading_dates)}")
-            
+
+            self._trading_days_cache[cache_key] = filtered_dates
             return filtered_dates
-            
+
         except Exception as e:
             logger.error(f"Ошибка при фильтрации торговых дней: {str(e)}")
             return []
@@ -299,35 +307,37 @@ class DataProcessor:
             return False
         
         try:
-            # Создаем временное окно
-            window_start = timestamp - timedelta(minutes=buffer_minutes)
-            window_end = timestamp + timedelta(minutes=buffer_minutes)
-            
-            # Фильтруем новости по важности
-            filtered_news = self.news_data[
-                self.news_data['impact'].isin(impact_filter)
-            ]
-            
-            # Добавляем фильтрацию по валютам (case-insensitive)
-            if currency_filter and len(currency_filter) > 0:
-                filter_upper = [c.upper() for c in currency_filter]
-                if 'Currency' in filtered_news.columns:
-                    filtered_news = filtered_news[filtered_news['Currency'].str.upper().isin(filter_upper)]
-                elif 'currency' in filtered_news.columns:
-                    filtered_news = filtered_news[filtered_news['currency'].str.upper().isin(filter_upper)]
-            
-            # Проверяем попадание в окно
-            news_in_window = filtered_news[
-                (filtered_news['timestamp'] >= window_start) & 
-                (filtered_news['timestamp'] <= window_end)
-            ]
-            
-            if len(news_in_window) > 0:
-                logger.debug(f"Найдено {len(news_in_window)} блокирующих новостей около {timestamp}")
-                return True
-            
-            return False
-            
+            # Ключ кеша — параметры фильтра (не зависит от конкретного timestamp)
+            filter_key = (
+                tuple(sorted(impact_filter)),
+                tuple(sorted(c.upper() for c in (currency_filter or [])))
+            )
+
+            # Строим отсортированный массив timestamps подходящих новостей (один раз)
+            if filter_key not in self._news_filter_cache:
+                fn = self.news_data[self.news_data['impact'].isin(impact_filter)]
+                if currency_filter:
+                    filter_upper = [c.upper() for c in currency_filter]
+                    col = 'Currency' if 'Currency' in fn.columns else ('currency' if 'currency' in fn.columns else None)
+                    if col:
+                        fn = fn[fn[col].str.upper().isin(filter_upper)]
+                self._news_filter_cache[filter_key] = np.sort(fn['timestamp'].values)
+
+            news_ts = self._news_filter_cache[filter_key]
+            if len(news_ts) == 0:
+                return False
+
+            # Бинарный поиск по окну ±buffer_minutes — O(log n)
+            window_start_np = pd.Timestamp(timestamp - timedelta(minutes=buffer_minutes)).to_numpy()
+            window_end_np   = pd.Timestamp(timestamp + timedelta(minutes=buffer_minutes)).to_numpy()
+            s = np.searchsorted(news_ts, window_start_np)
+            e = np.searchsorted(news_ts, window_end_np, side='right')
+            found = e > s
+
+            if found:
+                logger.debug(f"Найдено {e - s} блокирующих новостей около {timestamp}")
+            return found
+
         except Exception as e:
             logger.error(f"Ошибка при проверке новостного окна: {str(e)}")
             return False
@@ -346,17 +356,15 @@ class DataProcessor:
             'BELOW' - цена ниже диапазона
         """
         try:
-            # Находим свечу перед началом сессии
-            candles_before = self.price_data[
-                self.price_data['timestamp'] < session_start_time
-            ]
-            
-            if len(candles_before) == 0:
+            # Находим свечу перед началом сессии — бинарный поиск O(log n)
+            pos = np.searchsorted(self._ts_values, pd.Timestamp(session_start_time).to_numpy())
+
+            if pos == 0:
                 logger.warning(f"Нет данных перед началом сессии {session_start_time}")
                 return 'INSIDE'  # По умолчанию
-            
+
             # Берем последнюю свечу перед сессией
-            last_candle = candles_before.iloc[-1]
+            last_candle = self.price_data.iloc[pos - 1]
             start_price = last_candle['close']
             
             # Определяем позицию
