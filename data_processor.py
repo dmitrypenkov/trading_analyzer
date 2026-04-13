@@ -101,21 +101,21 @@ class DataProcessor:
             }
         """
         try:
-            # Определяем дату начала БЛОКА
-            if from_previous_day:
-                # БЛОК начинается с предыдущего дня
+            # Определяем дату начала БЛОКА.
+            # Если блок переходит через полночь (block_end <= block_start) — например 20:00-02:00
+            # или 16:00-00:00 — блок ВСЕГДА начинается с предыдущего дня. Это гарантирует, что
+            # диапазон блока сформирован ДО начала сессии (нет lookahead bias).
+            # from_previous_day=True имеет смысл только для дневных блоков (block_start < block_end),
+            # когда нужно явно взять диапазон предыдущего дня.
+            overnight_block = (block_end <= block_start)
+            if from_previous_day or overnight_block:
                 block_start_date = date - timedelta(days=1)
-                logger.debug(f"БЛОК начинается с предыдущего дня: {block_start_date}")
             else:
                 block_start_date = date
-            
+
             # Создаем datetime для начала и конца блока
             block_start_dt = datetime.combine(block_start_date, block_start)
             block_end_dt = datetime.combine(date, block_end)
-            
-            # Обработка случая когда блок переходит через полночь (без учета from_previous_day)
-            if not from_previous_day and block_end <= block_start:
-                block_end_dt += timedelta(days=1)
             
             # Фильтруем свечи в диапазоне блока
             mask = (
