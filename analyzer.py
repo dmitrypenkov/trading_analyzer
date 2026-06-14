@@ -184,7 +184,8 @@ class TradingAnalyzer:
                 news_filter_settings = {
                     'impact_filter': settings['news_impact_filter'],
                     'buffer_minutes': settings['news_buffer_minutes'],
-                    'currency_filter': settings.get('news_currency_filter', [])
+                    'currency_filter': settings.get('news_currency_filter', []),
+                    'exit_mode': settings.get('news_exit_mode', 'be')
                 }
             
             # Симулируем исполнение сделки
@@ -517,10 +518,27 @@ class TradingAnalyzer:
                 )
                 
                 if has_news:
-                    # Закрываем по BE при новостях
-                    entry_price = session_candles.iloc[entry_candle_index]['close']
+                    entry_close = session_candles.iloc[entry_candle_index]['close']
+                    exit_mode = news_filter_settings.get('exit_mode', 'be')
+                    if exit_mode == 'market':
+                        # Реальный выход по рынку: цена последней свечи ДО новостного окна.
+                        # Результат — реальный R (r_calculator считает по exit_price).
+                        exit_idx = max(idx - 1, entry_candle_index)
+                        exit_candle = session_candles.iloc[exit_idx]
+                        exit_price = exit_candle['close']
+                        is_long = tp_price > sl_price
+                        dir_pnl = (exit_price - entry_close) if is_long else (entry_close - exit_price)
+                        res = 'TP' if dir_pnl > 1e-9 else ('SL' if dir_pnl < -1e-9 else 'BE')
+                        return {
+                            'exit_price': exit_price,
+                            'exit_time': exit_candle['timestamp'],
+                            'result': res,
+                            'pnl': dir_pnl,
+                            'close_reason': 'news_market_exit'
+                        }
+                    # режим BE (по умолчанию): закрываем по входу
                     return {
-                        'exit_price': entry_price,
+                        'exit_price': entry_close,
                         'exit_time': candle['timestamp'],
                         'result': 'BE',
                         'pnl': 0.0,

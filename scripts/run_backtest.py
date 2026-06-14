@@ -60,6 +60,7 @@ DEFAULTS = {
     "use_base_sl_mode": False,
     "rr_ratio": 1.5,
     "use_news_filter": True,
+    "news_exit_mode": "be",
     "news_impact_filter": ["high"],
     "news_buffer_minutes": 30,
     "news_currency_filter": [],

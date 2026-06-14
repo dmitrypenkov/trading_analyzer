@@ -81,6 +81,7 @@ class XauPipeline:
                        mode="TREND", invert_signals=False,
                        sl_multiplier=0.1, rr_ratio=2.0,
                        use_news_filter=True, news_buffer_minutes=30,
+                       news_exit_mode="be",
                        from_previous_day=False):
         """Собирает settings dict с time-объектами, base_sl режим + news."""
         return {
@@ -109,6 +110,7 @@ class XauPipeline:
             "base_sl": self.base_sl,
             "rr_ratio": rr_ratio,
             "use_news_filter": use_news_filter,
+            "news_exit_mode": news_exit_mode,
             "news_impact_filter": ["high"],
             "news_buffer_minutes": news_buffer_minutes,
             "news_currency_filter": self.news_currencies,

@@ -43,8 +43,11 @@ SLICE_DAYS = 30          # размер недавнего среза
 TOP_N = 20
 
 
+NEWS_EXIT_MODE = "be"   # переопределяется из CLI (--news-exit market)
+
+
 def main(symbol="XAUUSD"):
-    print(f"🔍 {symbol} loss-finder: загрузка данных...", flush=True)
+    print(f"🔍 {symbol} loss-finder (news_exit={NEWS_EXIT_MODE}): загрузка данных...", flush=True)
     pipe = XauPipeline(symbol=symbol, load_from="2023-12-01")
     print(f"   свечей загружено: {pipe.candles_loaded:,}; данные по {pipe.data_last}; base_sl={pipe.base_sl}", flush=True)
 
@@ -69,6 +72,7 @@ def main(symbol="XAUUSD"):
         settings = pipe.build_settings(
             block_start=bs, block_end=be, session_start=ss, session_end=se,
             mode=mode, sl_multiplier=sl, rr_ratio=rr,
+            news_exit_mode=NEWS_EXIT_MODE,
         )
         df = pipe.run(settings, start_12m, end_12m)
         m12 = metrics_from_df(df)
@@ -114,6 +118,7 @@ def main(symbol="XAUUSD"):
         "search_window": f"{start_12m} … {end_12m}",
         "slice_30d": f"{cutoff_30d} … {end_12m}",
         "min_trades": MIN_TRADES,
+        "news_exit_mode": NEWS_EXIT_MODE,
         "grid": {
             "windows": [[w[0], w[1], w[2], w[3], w[4]] for w in WINDOWS],
             "rr_ratios": RR_RATIOS, "sl_mults": SL_MULTS, "modes": MODES,
@@ -121,7 +126,8 @@ def main(symbol="XAUUSD"):
         "ranked_worst": eligible,
         "all_results": results,
     }
-    out_file = PROJECT_ROOT / f"{symbol.lower()}_loss_finder.json"
+    suffix = "" if NEWS_EXIT_MODE == "be" else f"_{NEWS_EXIT_MODE}"
+    out_file = PROJECT_ROOT / f"{symbol.lower()}_loss_finder{suffix}.json"
     with open(out_file, "w", encoding="utf-8") as f:
         json.dump(out, f, ensure_ascii=False, indent=2)
     print(f"\n📁 Сохранено: {out_file}")
@@ -134,4 +140,8 @@ def main(symbol="XAUUSD"):
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("symbol", nargs="?", default="XAUUSD", help="Тикер инструмента (по умолчанию XAUUSD)")
-    main(ap.parse_args().symbol.upper())
+    ap.add_argument("--news-exit", default="be", choices=["be", "market"],
+                    help="Режим выхода перед новостями: be (в ноль) или market (реальный R)")
+    args = ap.parse_args()
+    NEWS_EXIT_MODE = args.news_exit
+    main(args.symbol.upper())
