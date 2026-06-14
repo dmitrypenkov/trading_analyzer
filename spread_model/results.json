@@ -1,0 +1,511 @@
+{
+  "period": "2023-01-04 … 2026-03-27",
+  "n_obs": 834,
+  "n_oos": 577,
+  "label_up_rate": 0.5444,
+  "classification": [
+    {
+      "model": "majority",
+      "accuracy": 0.5321,
+      "auc": 0.4862,
+      "n": 577,
+      "pred_up_rate": 1.0
+    },
+    {
+      "model": "z_rule",
+      "accuracy": 0.5303,
+      "auc": 0.5352,
+      "n": 577,
+      "pred_up_rate": 0.426
+    },
+    {
+      "model": "logistic",
+      "accuracy": 0.5546,
+      "auc": 0.5521,
+      "n": 577,
+      "pred_up_rate": 0.489
+    },
+    {
+      "model": "gbm",
+      "accuracy": 0.5286,
+      "auc": 0.521,
+      "n": 577,
+      "pred_up_rate": 0.681
+    }
+  ],
+  "backtest_sweep": [
+    {
+      "model": "majority",
+      "m_sl": 1.0,
+      "rr": 1.0,
+      "total_r": 14.19,
+      "trades": 577,
+      "win_rate": 53.0,
+      "pf": 1.22,
+      "sharpe": 1.07,
+      "max_dd": -4.76
+    },
+    {
+      "model": "majority",
+      "m_sl": 1.0,
+      "rr": 1.5,
+      "total_r": 17.19,
+      "trades": 577,
+      "win_rate": 53.0,
+      "pf": 1.27,
+      "sharpe": 1.22,
+      "max_dd": -5.02
+    },
+    {
+      "model": "majority",
+      "m_sl": 1.0,
+      "rr": 2.0,
+      "total_r": 19.5,
+      "trades": 577,
+      "win_rate": 53.0,
+      "pf": 1.31,
+      "sharpe": 1.32,
+      "max_dd": -5.02
+    },
+    {
+      "model": "majority",
+      "m_sl": 1.5,
+      "rr": 1.0,
+      "total_r": 12.67,
+      "trades": 577,
+      "win_rate": 53.4,
+      "pf": 1.3,
+      "sharpe": 1.3,
+      "max_dd": -3.77
+    },
+    {
+      "model": "majority",
+      "m_sl": 1.5,
+      "rr": 1.5,
+      "total_r": 12.63,
+      "trades": 577,
+      "win_rate": 53.2,
+      "pf": 1.29,
+      "sharpe": 1.23,
+      "max_dd": -3.77
+    },
+    {
+      "model": "majority",
+      "m_sl": 1.5,
+      "rr": 2.0,
+      "total_r": 12.72,
+      "trades": 577,
+      "win_rate": 53.2,
+      "pf": 1.29,
+      "sharpe": 1.21,
+      "max_dd": -3.77
+    },
+    {
+      "model": "majority",
+      "m_sl": 2.0,
+      "rr": 1.0,
+      "total_r": 9.78,
+      "trades": 577,
+      "win_rate": 53.4,
+      "pf": 1.3,
+      "sharpe": 1.23,
+      "max_dd": -3.33
+    },
+    {
+      "model": "majority",
+      "m_sl": 2.0,
+      "rr": 1.5,
+      "total_r": 8.16,
+      "trades": 577,
+      "win_rate": 53.2,
+      "pf": 1.24,
+      "sharpe": 0.99,
+      "max_dd": -3.33
+    },
+    {
+      "model": "majority",
+      "m_sl": 2.0,
+      "rr": 2.0,
+      "total_r": 7.65,
+      "trades": 577,
+      "win_rate": 53.2,
+      "pf": 1.22,
+      "sharpe": 0.95,
+      "max_dd": -3.41
+    },
+    {
+      "model": "z_rule",
+      "m_sl": 1.0,
+      "rr": 1.0,
+      "total_r": 14.23,
+      "trades": 577,
+      "win_rate": 52.9,
+      "pf": 1.22,
+      "sharpe": 1.07,
+      "max_dd": -6.17
+    },
+    {
+      "model": "z_rule",
+      "m_sl": 1.0,
+      "rr": 1.5,
+      "total_r": 16.45,
+      "trades": 577,
+      "win_rate": 52.7,
+      "pf": 1.26,
+      "sharpe": 1.16,
+      "max_dd": -5.09
+    },
+    {
+      "model": "z_rule",
+      "m_sl": 1.0,
+      "rr": 2.0,
+      "total_r": 19.02,
+      "trades": 577,
+      "win_rate": 52.7,
+      "pf": 1.3,
+      "sharpe": 1.28,
+      "max_dd": -4.74
+    },
+    {
+      "model": "z_rule",
+      "m_sl": 1.5,
+      "rr": 1.0,
+      "total_r": 11.67,
+      "trades": 577,
+      "win_rate": 52.9,
+      "pf": 1.27,
+      "sharpe": 1.2,
+      "max_dd": -3.49
+    },
+    {
+      "model": "z_rule",
+      "m_sl": 1.5,
+      "rr": 1.5,
+      "total_r": 14.51,
+      "trades": 577,
+      "win_rate": 52.9,
+      "pf": 1.34,
+      "sharpe": 1.38,
+      "max_dd": -3.49
+    },
+    {
+      "model": "z_rule",
+      "m_sl": 1.5,
+      "rr": 2.0,
+      "total_r": 15.17,
+      "trades": 577,
+      "win_rate": 52.9,
+      "pf": 1.35,
+      "sharpe": 1.39,
+      "max_dd": -3.49
+    },
+    {
+      "model": "z_rule",
+      "m_sl": 2.0,
+      "rr": 1.0,
+      "total_r": 9.28,
+      "trades": 577,
+      "win_rate": 52.9,
+      "pf": 1.28,
+      "sharpe": 1.16,
+      "max_dd": -2.87
+    },
+    {
+      "model": "z_rule",
+      "m_sl": 2.0,
+      "rr": 1.5,
+      "total_r": 10.38,
+      "trades": 577,
+      "win_rate": 52.9,
+      "pf": 1.31,
+      "sharpe": 1.23,
+      "max_dd": -2.87
+    },
+    {
+      "model": "z_rule",
+      "m_sl": 2.0,
+      "rr": 2.0,
+      "total_r": 10.37,
+      "trades": 577,
+      "win_rate": 52.9,
+      "pf": 1.31,
+      "sharpe": 1.22,
+      "max_dd": -2.87
+    },
+    {
+      "model": "logistic",
+      "m_sl": 1.0,
+      "rr": 1.0,
+      "total_r": 15.48,
+      "trades": 577,
+      "win_rate": 54.9,
+      "pf": 1.25,
+      "sharpe": 1.17,
+      "max_dd": -8.8
+    },
+    {
+      "model": "logistic",
+      "m_sl": 1.0,
+      "rr": 1.5,
+      "total_r": 17.72,
+      "trades": 577,
+      "win_rate": 54.9,
+      "pf": 1.28,
+      "sharpe": 1.27,
+      "max_dd": -7.08
+    },
+    {
+      "model": "logistic",
+      "m_sl": 1.0,
+      "rr": 2.0,
+      "total_r": 20.26,
+      "trades": 577,
+      "win_rate": 54.9,
+      "pf": 1.32,
+      "sharpe": 1.38,
+      "max_dd": -5.58
+    },
+    {
+      "model": "logistic",
+      "m_sl": 1.5,
+      "rr": 1.0,
+      "total_r": 12.52,
+      "trades": 577,
+      "win_rate": 55.3,
+      "pf": 1.29,
+      "sharpe": 1.29,
+      "max_dd": -4.48
+    },
+    {
+      "model": "logistic",
+      "m_sl": 1.5,
+      "rr": 1.5,
+      "total_r": 15.15,
+      "trades": 577,
+      "win_rate": 55.3,
+      "pf": 1.36,
+      "sharpe": 1.45,
+      "max_dd": -3.38
+    },
+    {
+      "model": "logistic",
+      "m_sl": 1.5,
+      "rr": 2.0,
+      "total_r": 15.32,
+      "trades": 577,
+      "win_rate": 55.3,
+      "pf": 1.36,
+      "sharpe": 1.44,
+      "max_dd": -3.59
+    },
+    {
+      "model": "logistic",
+      "m_sl": 2.0,
+      "rr": 1.0,
+      "total_r": 9.9,
+      "trades": 577,
+      "win_rate": 55.3,
+      "pf": 1.3,
+      "sharpe": 1.24,
+      "max_dd": -3.44
+    },
+    {
+      "model": "logistic",
+      "m_sl": 2.0,
+      "rr": 1.5,
+      "total_r": 10.48,
+      "trades": 577,
+      "win_rate": 55.3,
+      "pf": 1.32,
+      "sharpe": 1.27,
+      "max_dd": -2.94
+    },
+    {
+      "model": "logistic",
+      "m_sl": 2.0,
+      "rr": 2.0,
+      "total_r": 9.97,
+      "trades": 577,
+      "win_rate": 55.3,
+      "pf": 1.3,
+      "sharpe": 1.23,
+      "max_dd": -3.45
+    },
+    {
+      "model": "gbm",
+      "m_sl": 1.0,
+      "rr": 1.0,
+      "total_r": 15.07,
+      "trades": 577,
+      "win_rate": 53.0,
+      "pf": 1.24,
+      "sharpe": 1.13,
+      "max_dd": -4.6
+    },
+    {
+      "model": "gbm",
+      "m_sl": 1.0,
+      "rr": 1.5,
+      "total_r": 14.01,
+      "trades": 577,
+      "win_rate": 52.7,
+      "pf": 1.22,
+      "sharpe": 1.01,
+      "max_dd": -5.93
+    },
+    {
+      "model": "gbm",
+      "m_sl": 1.0,
+      "rr": 2.0,
+      "total_r": 15.42,
+      "trades": 577,
+      "win_rate": 52.7,
+      "pf": 1.24,
+      "sharpe": 1.08,
+      "max_dd": -5.81
+    },
+    {
+      "model": "gbm",
+      "m_sl": 1.5,
+      "rr": 1.0,
+      "total_r": 7.18,
+      "trades": 577,
+      "win_rate": 52.7,
+      "pf": 1.16,
+      "sharpe": 0.74,
+      "max_dd": -5.82
+    },
+    {
+      "model": "gbm",
+      "m_sl": 1.5,
+      "rr": 1.5,
+      "total_r": 8.21,
+      "trades": 577,
+      "win_rate": 52.7,
+      "pf": 1.18,
+      "sharpe": 0.82,
+      "max_dd": -5.77
+    },
+    {
+      "model": "gbm",
+      "m_sl": 1.5,
+      "rr": 2.0,
+      "total_r": 8.71,
+      "trades": 577,
+      "win_rate": 52.7,
+      "pf": 1.19,
+      "sharpe": 0.85,
+      "max_dd": -5.77
+    },
+    {
+      "model": "gbm",
+      "m_sl": 2.0,
+      "rr": 1.0,
+      "total_r": 4.27,
+      "trades": 577,
+      "win_rate": 52.7,
+      "pf": 1.12,
+      "sharpe": 0.53,
+      "max_dd": -5.63
+    },
+    {
+      "model": "gbm",
+      "m_sl": 2.0,
+      "rr": 1.5,
+      "total_r": 4.71,
+      "trades": 577,
+      "win_rate": 52.7,
+      "pf": 1.13,
+      "sharpe": 0.58,
+      "max_dd": -5.66
+    },
+    {
+      "model": "gbm",
+      "m_sl": 2.0,
+      "rr": 2.0,
+      "total_r": 5.21,
+      "trades": 577,
+      "win_rate": 52.7,
+      "pf": 1.15,
+      "sharpe": 0.62,
+      "max_dd": -5.66
+    }
+  ],
+  "fixed_1.5_1.5": [
+    {
+      "model": "logistic",
+      "m_sl": 1.5,
+      "rr": 1.5,
+      "total_r": 15.15,
+      "trades": 577,
+      "win_rate": 55.3,
+      "pf": 1.36,
+      "sharpe": 1.45,
+      "max_dd": -3.38
+    },
+    {
+      "model": "z_rule",
+      "m_sl": 1.5,
+      "rr": 1.5,
+      "total_r": 14.51,
+      "trades": 577,
+      "win_rate": 52.9,
+      "pf": 1.34,
+      "sharpe": 1.38,
+      "max_dd": -3.49
+    },
+    {
+      "model": "majority",
+      "m_sl": 1.5,
+      "rr": 1.5,
+      "total_r": 12.63,
+      "trades": 577,
+      "win_rate": 53.2,
+      "pf": 1.29,
+      "sharpe": 1.23,
+      "max_dd": -3.77
+    },
+    {
+      "model": "gbm",
+      "m_sl": 1.5,
+      "rr": 1.5,
+      "total_r": 8.21,
+      "trades": 577,
+      "win_rate": 52.7,
+      "pf": 1.18,
+      "sharpe": 0.82,
+      "max_dd": -5.77
+    }
+  ],
+  "best_ml": {
+    "total_r": 20.26,
+    "trades": 577,
+    "win_rate": 54.9,
+    "pf": 1.32,
+    "sharpe": 1.38,
+    "max_dd": -5.58,
+    "model": "logistic",
+    "m_sl": 1.0,
+    "rr": 2.0
+  },
+  "verdict": "Слабый край ЕСТЬ (acc 0.555>majority 0.532, Sharpe 1.23→1.45), но он МАЛ: чистый вклад модели над «always long spread» всего +2.5R за 577 дней. Сырой +R в основном от дрейфа спреда (NAS>SP), а не от тайминга.",
+  "feature_cols": [
+    "z_entry",
+    "abs_z",
+    "dz_block",
+    "block_spread_range",
+    "block_spread_ret",
+    "block_spread_pos",
+    "beta_l",
+    "beta_s",
+    "beta_drift",
+    "corr",
+    "nas_ret_block",
+    "sp_ret_block",
+    "ret_diff_block",
+    "nas_vol_block",
+    "sp_vol_block",
+    "dow",
+    "month"
+  ]
+}

@@ -1,0 +1,400 @@
+//@version=5
+indicator("EURUSD/USDCHF Spread v8 Pro (5m)", overlay=false, precision=2)
+
+// ============================================================
+// v8 Pro: парный трейдинг EURUSD/USDCHF (обратная корреляция -0.72)
+//
+// Архитектура аналогична NQ/ES v8 Pro:
+//   • Session Spread (ΔEUR/ATR − ΔCHF/ATR) — основной индикатор
+//     с анкером на открытии дня (00:00 UTC)
+//   • Z-equilibrium (600 баров M5 = 50ч) — сигнал входа
+//   • Half-life + Variance Ratio — детектор режима
+//   • Все окна в M5-эквиваленте (×3 от M15-версии v1)
+//
+// Reversion стат (бэктест 91k баров M15, 2022-2026):
+//   |z| > 1.5: 94% за 4ч
+//   |z| > 2.0: 99.5% за 4ч
+//   |z| > 2.5: 100% за 4ч
+//   Логика: USD общий, EUR-CHF экономически связаны.
+//
+// Знак beta типично -0.67 (обратная корреляция).
+// ============================================================
+
+// ============================================================
+// INPUTS
+// ============================================================
+grpSym = "Символы"
+eur_sym = input.symbol("VANTAGE:EURUSD", "EURUSD", group=grpSym)
+chf_sym = input.symbol("VANTAGE:USDCHF", "USDCHF", group=grpSym)
+vix_sym = input.symbol("TVC:VIX",        "VIX",    group=grpSym)
+
+grpSess = "Сессия"
+sess_start_h = input.int(0,  "Начало (час UTC)", minval=0, maxval=23, group=grpSess, tooltip="Forex 24/5 — анкер сбрасывается в 00:00 UTC каждый день")
+sess_end_h   = input.int(23, "Конец (час UTC)",  minval=0, maxval=23, group=grpSess, tooltip="23:00 UTC — короткая пауза перед сбросом анкера")
+
+grpZ = "Z-score (вход)"
+z_eq_len       = input.int(600,  "Equilibrium lookback",     group=grpZ, tooltip="600 баров M5 = 50ч ≈ 2 торговых дня")
+z_fast_len     = input.int(150,  "Fast lookback (справочно)", group=grpZ, tooltip="150 баров M5 = 12.5ч")
+z_entry        = input.float(1.5, "Порог входа |z_eq| >",    group=grpZ, step=0.1, tooltip="EUR/CHF реверс силён — вход с 1.5σ оправдан (94% возврат)")
+z_entry_strong = input.float(2.0, "Сильный вход |z_eq| >",   group=grpZ, step=0.1, tooltip="2.0σ = 99.5% возврат за 4ч")
+z_mom_len      = input.int(12,   "Momentum окно (12=1ч M5)", group=grpZ)
+
+grpSS = "Session Spread (выход)"
+ss_tp_level    = input.float(1.5, "TP уровень",     group=grpSS, step=0.1, tooltip="Forex spreads уже NQ/ES — порог ниже 2.0")
+ss_exit_level  = input.float(0.7, "Уровень выхода", group=grpSS, step=0.1)
+ss_warn_level  = input.float(0.3, "Зона профита >", group=grpSS, step=0.1)
+
+grpBeta = "Beta / Корреляция"
+beta_short = input.int(15,  "Beta short (мин)", group=grpBeta)
+beta_long  = input.int(120, "Beta long (мин)",  group=grpBeta)
+corr_len   = input.int(36,  "Corr окно (баров)", group=grpBeta, tooltip="36 баров M5 = 3ч")
+
+grpPos = "Позиция"
+my_dir      = input.string("Long EURUSD / Short USDCHF", "Направление", options=["Long EURUSD / Short USDCHF", "Short EURUSD / Long USDCHF"], group=grpPos)
+in_position = input.bool(false,  "В позиции",      group=grpPos)
+entry_eur   = input.float(0.0,   "Цена входа EUR", group=grpPos)
+entry_chf   = input.float(0.0,   "Цена входа CHF", group=grpPos)
+lot_eur     = input.float(1.0,   "Лот EURUSD",     group=grpPos)
+lot_chf     = input.float(1.0,   "Лот USDCHF",     group=grpPos)
+pv_eur      = input.float(10.0,  "$/пип EUR (1 lot)", group=grpPos, tooltip="Стандартный лот EURUSD: $10 за пип")
+pv_chf      = input.float(11.0,  "$/пип CHF (1 lot)", group=grpPos, tooltip="USDCHF: ~$10/USDCHF за пип ≈ $11")
+
+grpATR = "ATR & Волатильность"
+atr_len = input.int(228, "ATR период", group=grpATR, tooltip="228 баров M5 = 19ч")
+div_len = input.int(36,  "Окно дивергенции", group=grpATR, tooltip="36 баров M5 = 3ч")
+
+grpVis = "Отображение"
+show_table  = input.bool(true,  "Показать таблицу",       group=grpVis)
+table_pos   = input.string("top_right", "Позиция таблицы", options=["top_right","top_left","bottom_right","bottom_left"], group=grpVis)
+show_z_line = input.bool(false, "Z-eq на графике",         group=grpVis)
+
+// ============================================================
+// TF helper
+// ============================================================
+tf_min = timeframe.in_seconds() / 60
+
+// ============================================================
+// DATA
+// ============================================================
+eur = request.security(eur_sym, timeframe.period, close)
+chf = request.security(chf_sym, timeframe.period, close)
+vix = request.security(vix_sym, timeframe.period, close, ignore_invalid_symbol=true)
+
+eur_atr = request.security(eur_sym, timeframe.period, ta.atr(atr_len))
+chf_atr = request.security(chf_sym, timeframe.period, ta.atr(atr_len))
+
+atr_ratio     = not na(chf_atr) and chf_atr != 0 ? eur_atr / chf_atr : na
+eur_atr_avg   = ta.sma(eur_atr, atr_len * 3)
+vol_regime    = not na(eur_atr_avg) and eur_atr_avg != 0 ? eur_atr / eur_atr_avg : 1.0
+atr_ratio_avg = ta.sma(atr_ratio, atr_len * 3)
+atr_ratio_dev = not na(atr_ratio_avg) and atr_ratio_avg != 0 ? (atr_ratio - atr_ratio_avg) / atr_ratio_avg * 100 : 0.0
+
+// ============================================================
+// SESSION DETECTION
+// ============================================================
+h_utc = hour(time, "UTC")
+m_utc = minute(time, "UTC")
+is_in_session = h_utc >= sess_start_h and h_utc < sess_end_h
+
+var bool prev_in_sess = false
+is_session_open = is_in_session and not prev_in_sess
+prev_in_sess := is_in_session
+
+// ============================================================
+// SESSION SPREAD
+// ============================================================
+var float sess_eur_open = na
+var float sess_chf_open = na
+var float sess_eur_atr  = na
+var float sess_chf_atr  = na
+
+if is_session_open
+    sess_eur_open := eur
+    sess_chf_open := chf
+    sess_eur_atr  := eur_atr > 0 ? eur_atr : 0.001
+    sess_chf_atr  := chf_atr > 0 ? chf_atr : 0.001
+
+eur_delta_norm = sess_eur_atr > 0 and not na(sess_eur_open) ? (eur - sess_eur_open) / sess_eur_atr : 0.0
+chf_delta_norm = sess_chf_atr > 0 and not na(sess_chf_open) ? (chf - sess_chf_open) / sess_chf_atr : 0.0
+
+// raw_ss > 0: EUR вырос сильнее CHF (USDCHF). Это плюс для Long EUR/Short USDCHF.
+raw_ss      = eur_delta_norm - chf_delta_norm
+is_long_eur = my_dir == "Long EURUSD / Short USDCHF"
+dir_ss      = is_long_eur ? raw_ss : -raw_ss
+plot_ss     = is_in_session and not na(sess_eur_open) ? dir_ss : na
+
+ss_mom      = dir_ss - dir_ss[z_mom_len]
+ss_mom_text = ss_mom > 0.3 ? "↗↗" : ss_mom > 0.05 ? "↗" : ss_mom < -0.3 ? "↘↘" : ss_mom < -0.05 ? "↘" : "→"
+
+var bool tp_hit_this_session = false
+if is_session_open
+    tp_hit_this_session := false
+if dir_ss > ss_tp_level
+    tp_hit_this_session := true
+
+// ============================================================
+// BETA & CORRELATION
+// ============================================================
+eur_r = ta.change(eur) / eur[1]
+chf_r = ta.change(chf) / chf[1]
+
+f_beta(len) =>
+    cov_v = ta.sma(eur_r * chf_r, len) - ta.sma(eur_r, len) * ta.sma(chf_r, len)
+    var_v = ta.sma(chf_r * chf_r, len) - math.pow(ta.sma(chf_r, len), 2)
+    var_v != 0 ? cov_v / var_v : na
+
+bars_short = math.max(2, math.round(beta_short / tf_min))
+bars_long  = math.max(bars_short + 1, math.round(beta_long / tf_min))
+
+beta_s = f_beta(bars_short)
+beta_l = f_beta(bars_long)
+beta_use = not na(beta_l) ? beta_l : -0.67
+beta_drift_pct = not na(beta_l) and beta_l != 0 ? math.abs(beta_s - beta_l) / math.abs(beta_l) * 100 : 0.0
+corr_val = ta.correlation(eur_r, chf_r, corr_len)
+
+// ============================================================
+// SPREAD & Z-SCORE
+// ============================================================
+spread = eur - beta_use * chf
+
+spread_ma_eq = ta.sma(spread, z_eq_len)
+spread_sd_eq = ta.stdev(spread, z_eq_len)
+z_eq         = spread_sd_eq != 0 ? (spread - spread_ma_eq) / spread_sd_eq : 0.0
+
+spread_ma_f = ta.sma(spread, z_fast_len)
+spread_sd_f = ta.stdev(spread, z_fast_len)
+z_fast      = spread_sd_f != 0 ? (spread - spread_ma_f) / spread_sd_f : 0.0
+
+dir_z_eq   = is_long_eur ? z_eq   : -z_eq
+dir_z_fast = is_long_eur ? z_fast : -z_fast
+abs_dz_eq  = math.abs(dir_z_eq)
+
+z_mom    = dir_z_fast - dir_z_fast[z_mom_len]
+mom_text = z_mom > 0.3 ? "↗↗" : z_mom > 0.05 ? "↗" : z_mom < -0.3 ? "↘↘" : z_mom < -0.05 ? "↘" : "→"
+
+// ============================================================
+// HALF-LIFE & REGIME
+// ============================================================
+hl_len   = 300
+ar_phi   = ta.correlation(spread, spread[1], hl_len)
+hl_bars  = ar_phi > 0.01 and ar_phi < 0.999 ? -math.log(2) / math.log(ar_phi) : na
+hl_hours = not na(hl_bars) ? hl_bars * tf_min / 60 : na
+
+vr_k      = 60
+spread_d1 = spread - spread[1]
+spread_dk = spread - spread[vr_k]
+spread_v1 = ta.variance(spread_d1, hl_len)
+spread_vk = ta.variance(spread_dk, hl_len)
+vr        = spread_v1 > 0 ? spread_vk / (vr_k * spread_v1) : 1.0
+
+regime_text  = vr < 0.7 ? "MEAN REV" : vr > 1.3 ? "TREND" : "RANDOM"
+regime_color = vr < 0.7 ? color.new(#00C853, 30) : vr > 1.3 ? color.new(#F44336, 20) : color.new(color.gray, 40)
+
+// ============================================================
+// POSITION P&L (форекс: PnL в пипсах × pv)
+// ============================================================
+has_entry    = in_position and entry_eur > 0 and entry_chf > 0
+delta_eur    = (eur - entry_eur) * 10000   // в пипсах
+delta_chf    = (chf - entry_chf) * 10000
+position_pnl = has_entry ? (is_long_eur ? (lot_eur * pv_eur * delta_eur - lot_chf * pv_chf * delta_chf) : (-lot_eur * pv_eur * delta_eur + lot_chf * pv_chf * delta_chf)) : na
+
+// ============================================================
+// DIVERGENCE & LIQUIDITY
+// ============================================================
+eur_chg    = eur[div_len] != 0 ? (eur - eur[div_len]) / eur[div_len] * 100 : 0.0
+chf_chg    = chf[div_len] != 0 ? (chf - chf[div_len]) / chf[div_len] * 100 : 0.0
+divergence = is_long_eur ? (eur_chg - chf_chg) : (chf_chg - eur_chg)
+
+// London 07-13, NY 13-22, Overlap 13-16 (HIGH)
+liq_text  = (h_utc >= 13 and h_utc < 16) ? "HIGH" : (h_utc >= 7 and h_utc < 13) or (h_utc >= 16 and h_utc < 22) ? "MED" : "LOW"
+liq_color = liq_text == "HIGH" ? color.white : liq_text == "MED" ? color.new(color.orange, 0) : color.new(color.red, 20)
+
+// EUR/CHF cross rate proxy = EUR × CHF (т.к. оба к USD)
+ratio            = chf != 0 ? eur * chf : na
+ratio_past       = ratio[div_len]
+ratio_change_pct = not na(ratio_past) and ratio_past != 0 ? math.abs(ratio - ratio_past) / ratio_past * 100 : 0.0
+
+// ============================================================
+// ACTION SIGNAL
+// ============================================================
+action_text = in_position ?
+     (dir_ss > ss_tp_level     ? "ФИКСИРУЙ!" :
+      dir_ss > ss_exit_level   ? "ФИКСИРОВАТЬ" :
+      dir_ss > ss_warn_level   ? "ПРОФИТ" :
+      dir_ss > -ss_warn_level  ? "ДЕРЖАТЬ" :
+      dir_ss > -ss_exit_level  ? "ПРОСАДКА" :
+      dir_ss > -ss_tp_level    ? "DEEP DD" : "DEEP DD!") :
+     (vr > 1.3                 ? "НЕ ВХОДИ" :
+      dir_z_eq < -z_entry_strong ? "ВХОД!" :
+      dir_z_eq < -z_entry      ? "ВХОД" :
+      dir_z_eq < -1.0          ? "СКОРО" : "ЖДИ")
+
+action_color = in_position ?
+     (dir_ss > ss_tp_level     ? color.new(#00C853, 0) :
+      dir_ss > ss_exit_level   ? color.new(#00E676, 0) :
+      dir_ss > ss_warn_level   ? color.new(#66BB6A, 10) :
+      dir_ss > -ss_warn_level  ? color.new(color.gray, 30) :
+      dir_ss > -ss_exit_level  ? color.new(#FF9800, 10) :
+      dir_ss > -ss_tp_level    ? color.new(#F44336, 10) : color.new(#D32F2F, 0)) :
+     (vr > 1.3                 ? color.new(#D32F2F, 0) :
+      dir_z_eq < -z_entry_strong ? color.new(#00C853, 0) :
+      dir_z_eq < -z_entry      ? color.new(#00E676, 10) :
+      dir_z_eq < -1.0          ? color.new(#FFC107, 20) : color.new(color.gray, 40))
+
+// ============================================================
+// OSCILLATOR
+// ============================================================
+ss_line_c = (dir_ss > ss_tp_level    ? #00C853 :
+             dir_ss > ss_exit_level  ? #00E676 :
+             dir_ss > ss_warn_level  ? #66BB6A :
+             dir_ss > -ss_warn_level ? color.gray :
+             dir_ss > -ss_exit_level ? #FF9800 :
+             dir_ss > -ss_tp_level   ? #F44336 : #D32F2F)
+
+p_ss = plot(plot_ss, "Session Spread", color=ss_line_c, linewidth=3)
+p_0  = plot(0,       "Zero",           color=color.new(color.gray, 50), linewidth=1)
+
+plot(show_z_line ? dir_z_eq : na, "Z-equil", color=color.new(#FF9800, 50), linewidth=1)
+
+ss_fill = (dir_ss > ss_tp_level    ? color.new(#00C853, 60) :
+           dir_ss > ss_exit_level  ? color.new(#00E676, 72) :
+           dir_ss > 0              ? color.new(color.green, 85) :
+           dir_ss > -ss_exit_level ? color.new(color.red, 85) :
+                                     color.new(#F44336, 60))
+fill(p_ss, p_0, color=is_in_session and not na(sess_eur_open) ? ss_fill : na)
+
+p_tp_hi  = plot(ss_tp_level,    "+TP",   color=color.new(#00C853, 55), linewidth=1, style=plot.style_line)
+p_tp_lo  = plot(-ss_tp_level,   "-TP",   color=color.new(#D32F2F, 55), linewidth=1, style=plot.style_line)
+p_ex_hi  = plot(ss_exit_level,  "+Exit", color=color.new(#00E676, 65), linewidth=1, style=plot.style_line)
+p_ex_lo  = plot(-ss_exit_level, "-Exit", color=color.new(#F44336, 65), linewidth=1, style=plot.style_line)
+hline(0, "0", color=color.new(color.white, 60), linestyle=hline.style_solid)
+
+bgcolor(is_in_session and dir_ss > ss_tp_level ? color.new(#00E676, 90) : is_in_session and dir_ss < -ss_tp_level ? color.new(#F44336, 90) : na)
+bgcolor(has_entry ? (position_pnl >= 0 ? color.new(#00C853, 95) : color.new(#F44336, 95)) : na)
+
+entry_ok     = is_in_session and vr <= 1.3
+strong_entry = not in_position and entry_ok and dir_z_eq < -z_entry_strong
+normal_entry = not in_position and entry_ok and dir_z_eq < -z_entry and dir_z_eq >= -z_entry_strong
+plotshape(strong_entry, "ВХОД!",  style=shape.labelup,   location=location.bottom, color=#00C853, textcolor=color.white, text="ВХОД!", size=size.small)
+plotshape(normal_entry, "ВХОД",   style=shape.triangleup, location=location.bottom, color=#00E676, size=size.tiny)
+
+exit_signal = in_position and is_in_session and tp_hit_this_session and ta.crossunder(dir_ss, ss_exit_level)
+plotshape(exit_signal, "ВЫХОД", style=shape.labeldown, location=location.top, color=#FF9800, textcolor=color.white, text="ВЫХОД", size=size.small)
+
+// ============================================================
+// TABLE
+// ============================================================
+tbl_pos_v = table_pos == "top_right" ? position.top_right : table_pos == "top_left" ? position.top_left : table_pos == "bottom_right" ? position.bottom_right : position.bottom_left
+var table t = table.new(tbl_pos_v, 3, 11, border_width=1, force_overlay=true)
+
+hdr_bg = color.new(color.gray, 30)
+inf_bg = color.new(color.black, 80)
+ctx_bg = color.new(color.black, 75)
+sec_bg = color.new(color.gray, 55)
+sz_s   = size.small
+sz_t   = size.tiny
+sz_n   = size.normal
+
+if show_table and barstate.islast
+    hdr_text = in_position ? "EUR/CHF v8 ●" : "EUR/CHF v8"
+    table.cell(t, 0, 0, hdr_text,    text_color=color.white, bgcolor=hdr_bg, text_size=sz_s)
+    table.cell(t, 1, 0, "",          bgcolor=hdr_bg)
+    table.cell(t, 2, 0, action_text, text_color=color.white, bgcolor=action_color, text_size=sz_n)
+
+    ss_str = (dir_ss >= 0 ? "+" : "") + str.tostring(dir_ss, "#.##")
+    ss_bg  = dir_ss > ss_tp_level ? color.new(#00C853, 10) : dir_ss > ss_exit_level ? color.new(#00E676, 25) : dir_ss > ss_warn_level ? color.new(#66BB6A, 40) : dir_ss > -ss_warn_level ? color.new(color.gray, 50) : dir_ss > -ss_exit_level ? color.new(#FF9800, 40) : color.new(#F44336, 25)
+    ss_info = in_position ? (dir_ss < ss_tp_level ? "→ " + str.tostring(ss_tp_level, "#.#") : "TP!") : ""
+    ss_info := ss_info + " " + ss_mom_text
+    table.cell(t, 0, 1, "S.Spread",  text_color=color.white, bgcolor=ss_bg, text_size=sz_s)
+    table.cell(t, 1, 1, ss_str,      text_color=color.white, bgcolor=ss_bg, text_size=sz_n)
+    table.cell(t, 2, 1, ss_info,     text_color=color.white, bgcolor=ss_bg, text_size=sz_t)
+
+    z_eq_bg = abs_dz_eq > z_entry_strong ? color.new(#00C853, 20) : abs_dz_eq > z_entry ? color.new(#00E676, 30) : abs_dz_eq > 1.0 ? color.new(#FFC107, 40) : color.new(color.gray, 55)
+    z_eq_info = not in_position ?
+         (abs_dz_eq > z_entry_strong ? "ГОТОВ!" : abs_dz_eq > z_entry ? "сигнал" : abs_dz_eq > 1.0 ? "скоро" : "—") :
+         (abs_dz_eq > 2.5 ? "100%" : abs_dz_eq > 2.0 ? "99.5%" : abs_dz_eq > 1.5 ? "94%" : abs_dz_eq > 1.0 ? "85%" : "—")
+    table.cell(t, 0, 2, "Z-equil",                        text_color=color.white, bgcolor=z_eq_bg, text_size=sz_s)
+    table.cell(t, 1, 2, str.tostring(dir_z_eq, "#.##"),    text_color=color.white, bgcolor=z_eq_bg, text_size=sz_n)
+    table.cell(t, 2, 2, z_eq_info + " " + mom_text,       text_color=color.white, bgcolor=z_eq_bg, text_size=sz_t)
+
+    pnl_str = has_entry ? (position_pnl >= 0 ? "+$" : "-$") + str.tostring(math.abs(position_pnl), "#.##") : "НЕТ ПОЗИЦИИ"
+    pnl_bg  = has_entry ? (position_pnl >= 0 ? color.new(#00C853, 30) : color.new(#F44336, 30)) : color.new(color.gray, 60)
+    pnl_tc  = has_entry ? color.white : color.gray
+    div_str = (divergence >= 0 ? "+" : "") + str.tostring(divergence, "#.##") + "%"
+    table.cell(t, 0, 3, "P&L",     text_color=pnl_tc, bgcolor=pnl_bg, text_size=sz_s)
+    table.cell(t, 1, 3, pnl_str,   text_color=pnl_tc, bgcolor=pnl_bg, text_size=sz_n)
+    table.cell(t, 2, 3, "div " + div_str, text_color=color.new(color.white, 30), bgcolor=pnl_bg, text_size=sz_t)
+
+    hl_str = not na(hl_hours) and hl_hours < 100 ? str.tostring(hl_hours, "#.#") + "ч" : "—"
+    table.cell(t, 0, 4, "Реверсия",  text_color=color.white, bgcolor=regime_color, text_size=sz_s)
+    table.cell(t, 1, 4, hl_str,      text_color=color.white, bgcolor=regime_color, text_size=sz_s)
+    table.cell(t, 2, 4, regime_text,  text_color=color.white, bgcolor=regime_color, text_size=sz_s)
+
+    time_str = str.tostring(h_utc, "00") + ":" + str.tostring(m_utc, "00") + " UTC"
+    sess_str = is_in_session ? "● СЕССИЯ" : "○ вне"
+    sess_c   = is_in_session ? color.new(#00E676, 40) : color.new(color.gray, 50)
+    table.cell(t, 0, 5, time_str,             text_color=color.white, bgcolor=sess_c, text_size=sz_s)
+    table.cell(t, 1, 5, sess_str,             text_color=color.white, bgcolor=sess_c, text_size=sz_s)
+    table.cell(t, 2, 5, "Ликв: " + liq_text,  text_color=liq_color,  bgcolor=sess_c, text_size=sz_t)
+
+    atr_bg   = math.abs(atr_ratio_dev) > 15 ? color.new(#FF9800, 30) : color.new(#1565C0, 50)
+    atr_str  = not na(atr_ratio) ? str.tostring(atr_ratio, "#.##") : "—"
+    atr_warn = math.abs(atr_ratio_dev) > 15 ? " !" : ""
+    eur_pips = not na(eur_atr) ? str.tostring(eur_atr * 10000, "#.#") : "—"
+    chf_pips = not na(chf_atr) ? str.tostring(chf_atr * 10000, "#.#") : "—"
+    atr_det  = eur_pips + "/" + chf_pips + " pip"
+    table.cell(t, 0, 6, "ATR Ratio",        text_color=color.white, bgcolor=atr_bg, text_size=sz_s)
+    table.cell(t, 1, 6, atr_str + atr_warn, text_color=color.white, bgcolor=atr_bg, text_size=sz_n)
+    table.cell(t, 2, 6, atr_det,            text_color=color.new(color.white, 30), bgcolor=atr_bg, text_size=sz_t)
+
+    vol_str = vol_regime > 1.5 ? "ВЫСОКАЯ!" : vol_regime > 1.2 ? "ПОВЫШЕНА" : vol_regime < 0.7 ? "НИЗКАЯ" : "НОРМА"
+    vol_bg  = vol_regime > 1.5 ? color.new(#D32F2F, 30) : vol_regime > 1.2 ? color.new(#FF9800, 40) : vol_regime < 0.7 ? color.new(#2196F3, 40) : color.new(#4CAF50, 60)
+    ratio_dev_str = "Ratio " + (atr_ratio_dev >= 0 ? "+" : "") + str.tostring(atr_ratio_dev, "#.#") + "%"
+    ratio_dev_c   = math.abs(atr_ratio_dev) > 15 ? color.new(#FF9800, 0) : color.new(color.white, 30)
+    table.cell(t, 0, 7, "Волатильн.",  text_color=color.white,  bgcolor=vol_bg, text_size=sz_s)
+    table.cell(t, 1, 7, vol_str,       text_color=color.white,  bgcolor=vol_bg, text_size=sz_s)
+    table.cell(t, 2, 7, ratio_dev_str, text_color=ratio_dev_c,  bgcolor=vol_bg, text_size=sz_t)
+
+    table.cell(t, 0, 8, "── КОНТЕКСТ ──", text_color=color.gray, bgcolor=sec_bg, text_size=sz_t)
+    table.cell(t, 1, 8, "",               bgcolor=sec_bg)
+    table.cell(t, 2, 8, "",               bgcolor=sec_bg)
+
+    corr_c = not na(corr_val) and math.abs(corr_val) < 0.5 ? color.new(#FF9800, 0) : color.gray
+    table.cell(t, 0, 9, "β " + str.tostring(beta_use, "#.##"),                text_color=color.gray, bgcolor=ctx_bg, text_size=sz_s)
+    table.cell(t, 1, 9, "drift " + str.tostring(beta_drift_pct, "#.#") + "%", text_color=color.gray, bgcolor=ctx_bg, text_size=sz_t)
+    table.cell(t, 2, 9, "Corr " + str.tostring(corr_val, "#.##"),             text_color=corr_c,     bgcolor=ctx_bg, text_size=sz_t)
+
+    dir_short = is_long_eur ? "L·EUR / S·CHF" : "S·EUR / L·CHF"
+    vix_bg = not na(vix) and vix > 35 ? color.new(#D32F2F, 20) : not na(vix) and vix > 25 ? color.new(#FF9800, 30) : not na(vix) and vix > 20 ? color.new(#FFC107, 50) : ctx_bg
+    vix_tc = not na(vix) and vix > 20 ? color.white : color.gray
+    table.cell(t, 0, 10, "VIX " + str.tostring(vix, "#.#"),                        text_color=vix_tc,     bgcolor=vix_bg, text_size=sz_s)
+    table.cell(t, 1, 10, "Cross Δ" + str.tostring(ratio_change_pct, "#.##") + "%", text_color=color.gray, bgcolor=vix_bg, text_size=sz_t)
+    table.cell(t, 2, 10, dir_short,                                                 text_color=color.gray, bgcolor=vix_bg, text_size=sz_t)
+
+// ============================================================
+// ALERTS
+// ============================================================
+alert_entry        = ta.crossunder(dir_z_eq, -z_entry) and is_in_session and vr <= 1.3
+alert_entry_strong = ta.crossunder(dir_z_eq, -z_entry_strong) and is_in_session and vr <= 1.3
+
+alert_ss_tp        = ta.crossover(dir_ss, ss_tp_level) and is_in_session
+alert_ss_exit      = ta.crossunder(dir_ss, ss_exit_level) and tp_hit_this_session and is_in_session
+alert_ss_deep_dd   = ta.crossunder(dir_ss, -ss_tp_level) and is_in_session
+
+alert_regime_trend = vr > 1.3 and vr[1] <= 1.3
+alert_regime_mr    = vr < 0.7 and vr[1] >= 0.7
+
+alert_vol_spike    = vol_regime > 1.5 and vol_regime[1] <= 1.5
+alert_vol_norm     = vol_regime <= 1.2 and vol_regime[1] > 1.2
+alert_ratio_broken = math.abs(atr_ratio_dev) > 15 and math.abs(atr_ratio_dev[1]) <= 15
+
+alertcondition(alert_entry,        "ВХОД: z_eq < -1.5",           "EUR/CHF v8: z_eq пересёк -1.5 — сигнал ВХОДА (94% возврат)")
+alertcondition(alert_entry_strong, "ВХОД!: z_eq < -2.0",          "EUR/CHF v8: z_eq пересёк -2.0 — СИЛЬНЫЙ сигнал входа (99.5% возврат)")
+alertcondition(alert_ss_tp,        "S.Spread: TP уровень",        "EUR/CHF v8: session spread достиг TP — рассмотри фиксацию")
+alertcondition(alert_ss_exit,      "S.Spread: ВЫХОД (возврат)",   "EUR/CHF v8: session spread вернулся к exit после TP — ФИКСИРУЙ")
+alertcondition(alert_ss_deep_dd,   "S.Spread: Deep DD",           "EUR/CHF v8: session spread в глубокой просадке")
+alertcondition(alert_regime_trend, "Режим → TREND",               "EUR/CHF v8: спред перешёл в TRENDING — mean reversion опасна")
+alertcondition(alert_regime_mr,    "Режим → MEAN REV",            "EUR/CHF v8: спред вернулся в mean-reverting режим")
+alertcondition(alert_vol_spike,    "Вола: ВЫСОКАЯ!",              "EUR/CHF v8: волатильность 1.5× выше нормы — уменьши лоты")
+alertcondition(alert_vol_norm,     "Вола: нормализация",          "EUR/CHF v8: волатильность вернулась к норме")
+alertcondition(alert_ratio_broken, "ATR Ratio: пересчёт!",        "EUR/CHF v8: ATR ratio сместился >15% — пересчитай лотаж")

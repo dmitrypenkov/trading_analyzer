@@ -1,0 +1,1754 @@
+{
+  "instrument": "NAS100",
+  "date_generated": "2026-04-14T21:47:04.433249",
+  "period": "2024-01-01 to 2026-04-14",
+  "parameters": {
+    "block_end": "13:30",
+    "session_start": "14:00",
+    "session_end": "20:00",
+    "sl_multiplier": 0.1,
+    "use_news_filter": true,
+    "news_impact_filter": [
+      "high"
+    ],
+    "news_buffer_minutes": 30
+  },
+  "results": {
+    "00:00_TREND_2.0": {
+      "block_start": "00:00",
+      "mode": "TREND",
+      "rr_ratio": 2.0,
+      "total_r": 11.43,
+      "trades": 293,
+      "win_rate": 37.88,
+      "max_drawdown": -9.21,
+      "profit_factor": 1.13,
+      "r_dd_ratio": 1.24,
+      "yearly": [
+        {
+          "year": "2024",
+          "total_r": 2.91,
+          "trades": 135,
+          "win_rate": 38.5
+        },
+        {
+          "year": "2025",
+          "total_r": 4.08,
+          "trades": 126,
+          "win_rate": 37.3
+        },
+        {
+          "year": "2026",
+          "total_r": 4.44,
+          "trades": 32,
+          "win_rate": 37.5
+        }
+      ]
+    },
+    "00:00_REVERSE_2.0": {
+      "block_start": "00:00",
+      "mode": "REVERSE",
+      "rr_ratio": 2.0,
+      "total_r": 1.21,
+      "trades": 341,
+      "win_rate": 36.07,
+      "max_drawdown": -19.82,
+      "profit_factor": 1.01,
+      "r_dd_ratio": 0.06,
+      "yearly": [
+        {
+          "year": "2024",
+          "total_r": 8.31,
+          "trades": 154,
+          "win_rate": 39.0
+        },
+        {
+          "year": "2025",
+          "total_r": -12.38,
+          "trades": 146,
+          "win_rate": 30.8
+        },
+        {
+          "year": "2026",
+          "total_r": 5.28,
+          "trades": 41,
+          "win_rate": 43.9
+        }
+      ]
+    },
+    "00:00_TREND_1.5": {
+      "block_start": "00:00",
+      "mode": "TREND",
+      "rr_ratio": 1.5,
+      "total_r": 11.21,
+      "trades": 293,
+      "win_rate": 41.3,
+      "max_drawdown": -7.92,
+      "profit_factor": 1.13,
+      "r_dd_ratio": 1.42,
+      "yearly": [
+        {
+          "year": "2024",
+          "total_r": 1.6,
+          "trades": 135,
+          "win_rate": 41.5
+        },
+        {
+          "year": "2025",
+          "total_r": 6.97,
+          "trades": 126,
+          "win_rate": 41.3
+        },
+        {
+          "year": "2026",
+          "total_r": 2.64,
+          "trades": 32,
+          "win_rate": 40.6
+        }
+      ]
+    },
+    "00:00_REVERSE_1.5": {
+      "block_start": "00:00",
+      "mode": "REVERSE",
+      "rr_ratio": 1.5,
+      "total_r": -2.92,
+      "trades": 341,
+      "win_rate": 38.71,
+      "max_drawdown": -20.84,
+      "profit_factor": 0.97,
+      "r_dd_ratio": -0.14,
+      "yearly": [
+        {
+          "year": "2024",
+          "total_r": 7.74,
+          "trades": 154,
+          "win_rate": 42.2
+        },
+        {
+          "year": "2025",
+          "total_r": -13.47,
+          "trades": 146,
+          "win_rate": 32.9
+        },
+        {
+          "year": "2026",
+          "total_r": 2.81,
+          "trades": 41,
+          "win_rate": 46.3
+        }
+      ]
+    },
+    "01:00_TREND_2.0": {
+      "block_start": "01:00",
+      "mode": "TREND",
+      "rr_ratio": 2.0,
+      "total_r": 7.41,
+      "trades": 294,
+      "win_rate": 38.1,
+      "max_drawdown": -10.46,
+      "profit_factor": 1.08,
+      "r_dd_ratio": 0.71,
+      "yearly": [
+        {
+          "year": "2024",
+          "total_r": 1.91,
+          "trades": 136,
+          "win_rate": 38.2
+        },
+        {
+          "year": "2025",
+          "total_r": 1.04,
+          "trades": 126,
+          "win_rate": 38.1
+        },
+        {
+          "year": "2026",
+          "total_r": 4.46,
+          "trades": 32,
+          "win_rate": 37.5
+        }
+      ]
+    },
+    "01:00_REVERSE_2.0": {
+      "block_start": "01:00",
+      "mode": "REVERSE",
+      "rr_ratio": 2.0,
+      "total_r": 4.7,
+      "trades": 343,
+      "win_rate": 36.73,
+      "max_drawdown": -18.98,
+      "profit_factor": 1.04,
+      "r_dd_ratio": 0.25,
+      "yearly": [
+        {
+          "year": "2024",
+          "total_r": 9.31,
+          "trades": 156,
+          "win_rate": 39.1
+        },
+        {
+          "year": "2025",
+          "total_r": -9.87,
+          "trades": 146,
+          "win_rate": 32.2
+        },
+        {
+          "year": "2026",
+          "total_r": 5.26,
+          "trades": 41,
+          "win_rate": 43.9
+        }
+      ]
+    },
+    "01:00_TREND_1.5": {
+      "block_start": "01:00",
+      "mode": "TREND",
+      "rr_ratio": 1.5,
+      "total_r": 7.69,
+      "trades": 294,
+      "win_rate": 41.5,
+      "max_drawdown": -9.17,
+      "profit_factor": 1.09,
+      "r_dd_ratio": 0.84,
+      "yearly": [
+        {
+          "year": "2024",
+          "total_r": 0.6,
+          "trades": 136,
+          "win_rate": 41.2
+        },
+        {
+          "year": "2025",
+          "total_r": 4.43,
+          "trades": 126,
+          "win_rate": 42.1
+        },
+        {
+          "year": "2026",
+          "total_r": 2.66,
+          "trades": 32,
+          "win_rate": 40.6
+        }
+      ]
+    },
+    "01:00_REVERSE_1.5": {
+      "block_start": "01:00",
+      "mode": "REVERSE",
+      "rr_ratio": 1.5,
+      "total_r": 0.07,
+      "trades": 343,
+      "win_rate": 39.36,
+      "max_drawdown": -20.13,
+      "profit_factor": 1.0,
+      "r_dd_ratio": 0.0,
+      "yearly": [
+        {
+          "year": "2024",
+          "total_r": 8.74,
+          "trades": 156,
+          "win_rate": 42.3
+        },
+        {
+          "year": "2025",
+          "total_r": -11.46,
+          "trades": 146,
+          "win_rate": 34.2
+        },
+        {
+          "year": "2026",
+          "total_r": 2.79,
+          "trades": 41,
+          "win_rate": 46.3
+        }
+      ]
+    },
+    "02:00_TREND_2.0": {
+      "block_start": "02:00",
+      "mode": "TREND",
+      "rr_ratio": 2.0,
+      "total_r": 8.18,
+      "trades": 293,
+      "win_rate": 38.57,
+      "max_drawdown": -10.41,
+      "profit_factor": 1.09,
+      "r_dd_ratio": 0.79,
+      "yearly": [
+        {
+          "year": "2024",
+          "total_r": 2.33,
+          "trades": 136,
+          "win_rate": 38.2
+        },
+        {
+          "year": "2025",
+          "total_r": 1.39,
+          "trades": 125,
+          "win_rate": 39.2
+        },
+        {
+          "year": "2026",
+          "total_r": 4.46,
+          "trades": 32,
+          "win_rate": 37.5
+        }
+      ]
+    },
+    "02:00_REVERSE_2.0": {
+      "block_start": "02:00",
+      "mode": "REVERSE",
+      "rr_ratio": 2.0,
+      "total_r": 4.73,
+      "trades": 343,
+      "win_rate": 37.03,
+      "max_drawdown": -19.35,
+      "profit_factor": 1.04,
+      "r_dd_ratio": 0.24,
+      "yearly": [
+        {
+          "year": "2024",
+          "total_r": 9.05,
+          "trades": 156,
+          "win_rate": 39.1
+        },
+        {
+          "year": "2025",
+          "total_r": -9.58,
+          "trades": 146,
+          "win_rate": 32.9
+        },
+        {
+          "year": "2026",
+          "total_r": 5.26,
+          "trades": 41,
+          "win_rate": 43.9
+        }
+      ]
+    },
+    "02:00_TREND_1.5": {
+      "block_start": "02:00",
+      "mode": "TREND",
+      "rr_ratio": 1.5,
+      "total_r": 8.46,
+      "trades": 293,
+      "win_rate": 41.98,
+      "max_drawdown": -9.12,
+      "profit_factor": 1.09,
+      "r_dd_ratio": 0.93,
+      "yearly": [
+        {
+          "year": "2024",
+          "total_r": 1.02,
+          "trades": 136,
+          "win_rate": 41.2
+        },
+        {
+          "year": "2025",
+          "total_r": 4.78,
+          "trades": 125,
+          "win_rate": 43.2
+        },
+        {
+          "year": "2026",
+          "total_r": 2.66,
+          "trades": 32,
+          "win_rate": 40.6
+        }
+      ]
+    },
+    "02:00_REVERSE_1.5": {
+      "block_start": "02:00",
+      "mode": "REVERSE",
+      "rr_ratio": 1.5,
+      "total_r": -1.23,
+      "trades": 343,
+      "win_rate": 39.36,
+      "max_drawdown": -20.5,
+      "profit_factor": 0.99,
+      "r_dd_ratio": -0.06,
+      "yearly": [
+        {
+          "year": "2024",
+          "total_r": 8.47,
+          "trades": 156,
+          "win_rate": 42.3
+        },
+        {
+          "year": "2025",
+          "total_r": -12.49,
+          "trades": 146,
+          "win_rate": 34.2
+        },
+        {
+          "year": "2026",
+          "total_r": 2.79,
+          "trades": 41,
+          "win_rate": 46.3
+        }
+      ]
+    },
+    "03:00_TREND_2.0": {
+      "block_start": "03:00",
+      "mode": "TREND",
+      "rr_ratio": 2.0,
+      "total_r": 9.85,
+      "trades": 292,
+      "win_rate": 38.36,
+      "max_drawdown": -9.42,
+      "profit_factor": 1.11,
+      "r_dd_ratio": 1.05,
+      "yearly": [
+        {
+          "year": "2024",
+          "total_r": 3.53,
+          "trades": 135,
+          "win_rate": 38.5
+        },
+        {
+          "year": "2025",
+          "total_r": 1.99,
+          "trades": 124,
+          "win_rate": 38.7
+        },
+        {
+          "year": "2026",
+          "total_r": 4.33,
+          "trades": 33,
+          "win_rate": 36.4
+        }
+      ]
+    },
+    "03:00_REVERSE_2.0": {
+      "block_start": "03:00",
+      "mode": "REVERSE",
+      "rr_ratio": 2.0,
+      "total_r": 1.49,
+      "trades": 343,
+      "win_rate": 36.44,
+      "max_drawdown": -19.48,
+      "profit_factor": 1.01,
+      "r_dd_ratio": 0.08,
+      "yearly": [
+        {
+          "year": "2024",
+          "total_r": 7.56,
+          "trades": 155,
+          "win_rate": 38.7
+        },
+        {
+          "year": "2025",
+          "total_r": -11.46,
+          "trades": 146,
+          "win_rate": 32.2
+        },
+        {
+          "year": "2026",
+          "total_r": 5.39,
+          "trades": 42,
+          "win_rate": 42.9
+        }
+      ]
+    },
+    "03:00_TREND_1.5": {
+      "block_start": "03:00",
+      "mode": "TREND",
+      "rr_ratio": 1.5,
+      "total_r": 10.13,
+      "trades": 292,
+      "win_rate": 41.78,
+      "max_drawdown": -9.13,
+      "profit_factor": 1.11,
+      "r_dd_ratio": 1.11,
+      "yearly": [
+        {
+          "year": "2024",
+          "total_r": 2.22,
+          "trades": 135,
+          "win_rate": 41.5
+        },
+        {
+          "year": "2025",
+          "total_r": 5.38,
+          "trades": 124,
+          "win_rate": 42.7
+        },
+        {
+          "year": "2026",
+          "total_r": 2.53,
+          "trades": 33,
+          "win_rate": 39.4
+        }
+      ]
+    },
+    "03:00_REVERSE_1.5": {
+      "block_start": "03:00",
+      "mode": "REVERSE",
+      "rr_ratio": 1.5,
+      "total_r": -4.48,
+      "trades": 343,
+      "win_rate": 38.78,
+      "max_drawdown": -21.74,
+      "profit_factor": 0.96,
+      "r_dd_ratio": -0.21,
+      "yearly": [
+        {
+          "year": "2024",
+          "total_r": 6.97,
+          "trades": 155,
+          "win_rate": 41.9
+        },
+        {
+          "year": "2025",
+          "total_r": -14.37,
+          "trades": 146,
+          "win_rate": 33.6
+        },
+        {
+          "year": "2026",
+          "total_r": 2.92,
+          "trades": 42,
+          "win_rate": 45.2
+        }
+      ]
+    },
+    "04:00_TREND_2.0": {
+      "block_start": "04:00",
+      "mode": "TREND",
+      "rr_ratio": 2.0,
+      "total_r": 11.03,
+      "trades": 292,
+      "win_rate": 38.7,
+      "max_drawdown": -9.42,
+      "profit_factor": 1.12,
+      "r_dd_ratio": 1.17,
+      "yearly": [
+        {
+          "year": "2024",
+          "total_r": 3.64,
+          "trades": 135,
+          "win_rate": 38.5
+        },
+        {
+          "year": "2025",
+          "total_r": 2.23,
+          "trades": 124,
+          "win_rate": 38.7
+        },
+        {
+          "year": "2026",
+          "total_r": 5.16,
+          "trades": 33,
+          "win_rate": 39.4
+        }
+      ]
+    },
+    "04:00_REVERSE_2.0": {
+      "block_start": "04:00",
+      "mode": "REVERSE",
+      "rr_ratio": 2.0,
+      "total_r": -0.62,
+      "trades": 344,
+      "win_rate": 36.34,
+      "max_drawdown": -19.48,
+      "profit_factor": 0.99,
+      "r_dd_ratio": -0.03,
+      "yearly": [
+        {
+          "year": "2024",
+          "total_r": 7.57,
+          "trades": 155,
+          "win_rate": 38.7
+        },
+        {
+          "year": "2025",
+          "total_r": -11.45,
+          "trades": 147,
+          "win_rate": 32.0
+        },
+        {
+          "year": "2026",
+          "total_r": 3.26,
+          "trades": 42,
+          "win_rate": 42.9
+        }
+      ]
+    },
+    "04:00_TREND_1.5": {
+      "block_start": "04:00",
+      "mode": "TREND",
+      "rr_ratio": 1.5,
+      "total_r": 11.26,
+      "trades": 292,
+      "win_rate": 42.12,
+      "max_drawdown": -9.13,
+      "profit_factor": 1.13,
+      "r_dd_ratio": 1.23,
+      "yearly": [
+        {
+          "year": "2024",
+          "total_r": 2.33,
+          "trades": 135,
+          "win_rate": 41.5
+        },
+        {
+          "year": "2025",
+          "total_r": 5.57,
+          "trades": 124,
+          "win_rate": 42.7
+        },
+        {
+          "year": "2026",
+          "total_r": 3.36,
+          "trades": 33,
+          "win_rate": 42.4
+        }
+      ]
+    },
+    "04:00_REVERSE_1.5": {
+      "block_start": "04:00",
+      "mode": "REVERSE",
+      "rr_ratio": 1.5,
+      "total_r": -6.59,
+      "trades": 344,
+      "win_rate": 38.66,
+      "max_drawdown": -21.73,
+      "profit_factor": 0.95,
+      "r_dd_ratio": -0.3,
+      "yearly": [
+        {
+          "year": "2024",
+          "total_r": 6.98,
+          "trades": 155,
+          "win_rate": 41.9
+        },
+        {
+          "year": "2025",
+          "total_r": -14.36,
+          "trades": 147,
+          "win_rate": 33.3
+        },
+        {
+          "year": "2026",
+          "total_r": 0.79,
+          "trades": 42,
+          "win_rate": 45.2
+        }
+      ]
+    },
+    "05:00_TREND_2.0": {
+      "block_start": "05:00",
+      "mode": "TREND",
+      "rr_ratio": 2.0,
+      "total_r": 10.79,
+      "trades": 293,
+      "win_rate": 38.91,
+      "max_drawdown": -9.42,
+      "profit_factor": 1.12,
+      "r_dd_ratio": 1.15,
+      "yearly": [
+        {
+          "year": "2024",
+          "total_r": 3.81,
+          "trades": 135,
+          "win_rate": 38.5
+        },
+        {
+          "year": "2025",
+          "total_r": 2.38,
+          "trades": 124,
+          "win_rate": 38.7
+        },
+        {
+          "year": "2026",
+          "total_r": 4.6,
+          "trades": 34,
+          "win_rate": 41.2
+        }
+      ]
+    },
+    "05:00_REVERSE_2.0": {
+      "block_start": "05:00",
+      "mode": "REVERSE",
+      "rr_ratio": 2.0,
+      "total_r": 0.57,
+      "trades": 346,
+      "win_rate": 36.42,
+      "max_drawdown": -19.64,
+      "profit_factor": 1.0,
+      "r_dd_ratio": 0.03,
+      "yearly": [
+        {
+          "year": "2024",
+          "total_r": 7.47,
+          "trades": 155,
+          "win_rate": 38.7
+        },
+        {
+          "year": "2025",
+          "total_r": -11.61,
+          "trades": 147,
+          "win_rate": 32.0
+        },
+        {
+          "year": "2026",
+          "total_r": 4.71,
+          "trades": 44,
+          "win_rate": 43.2
+        }
+      ]
+    },
+    "05:00_TREND_1.5": {
+      "block_start": "05:00",
+      "mode": "TREND",
+      "rr_ratio": 1.5,
+      "total_r": 11.02,
+      "trades": 293,
+      "win_rate": 42.32,
+      "max_drawdown": -9.13,
+      "profit_factor": 1.13,
+      "r_dd_ratio": 1.21,
+      "yearly": [
+        {
+          "year": "2024",
+          "total_r": 2.5,
+          "trades": 135,
+          "win_rate": 41.5
+        },
+        {
+          "year": "2025",
+          "total_r": 5.72,
+          "trades": 124,
+          "win_rate": 42.7
+        },
+        {
+          "year": "2026",
+          "total_r": 2.8,
+          "trades": 34,
+          "win_rate": 44.1
+        }
+      ]
+    },
+    "05:00_REVERSE_1.5": {
+      "block_start": "05:00",
+      "mode": "REVERSE",
+      "rr_ratio": 1.5,
+      "total_r": -5.4,
+      "trades": 346,
+      "win_rate": 38.73,
+      "max_drawdown": -21.89,
+      "profit_factor": 0.96,
+      "r_dd_ratio": -0.25,
+      "yearly": [
+        {
+          "year": "2024",
+          "total_r": 6.88,
+          "trades": 155,
+          "win_rate": 41.9
+        },
+        {
+          "year": "2025",
+          "total_r": -14.52,
+          "trades": 147,
+          "win_rate": 33.3
+        },
+        {
+          "year": "2026",
+          "total_r": 2.24,
+          "trades": 44,
+          "win_rate": 45.5
+        }
+      ]
+    },
+    "06:00_TREND_2.0": {
+      "block_start": "06:00",
+      "mode": "TREND",
+      "rr_ratio": 2.0,
+      "total_r": 8.84,
+      "trades": 296,
+      "win_rate": 38.85,
+      "max_drawdown": -9.27,
+      "profit_factor": 1.1,
+      "r_dd_ratio": 0.95,
+      "yearly": [
+        {
+          "year": "2024",
+          "total_r": 3.66,
+          "trades": 137,
+          "win_rate": 38.7
+        },
+        {
+          "year": "2025",
+          "total_r": 2.04,
+          "trades": 124,
+          "win_rate": 38.7
+        },
+        {
+          "year": "2026",
+          "total_r": 3.14,
+          "trades": 35,
+          "win_rate": 40.0
+        }
+      ]
+    },
+    "06:00_REVERSE_2.0": {
+      "block_start": "06:00",
+      "mode": "REVERSE",
+      "rr_ratio": 2.0,
+      "total_r": 3.1,
+      "trades": 349,
+      "win_rate": 36.96,
+      "max_drawdown": -19.06,
+      "profit_factor": 1.03,
+      "r_dd_ratio": 0.16,
+      "yearly": [
+        {
+          "year": "2024",
+          "total_r": 8.36,
+          "trades": 157,
+          "win_rate": 39.5
+        },
+        {
+          "year": "2025",
+          "total_r": -10.84,
+          "trades": 147,
+          "win_rate": 32.0
+        },
+        {
+          "year": "2026",
+          "total_r": 5.58,
+          "trades": 45,
+          "win_rate": 44.4
+        }
+      ]
+    },
+    "06:00_TREND_1.5": {
+      "block_start": "06:00",
+      "mode": "TREND",
+      "rr_ratio": 1.5,
+      "total_r": 9.34,
+      "trades": 296,
+      "win_rate": 42.91,
+      "max_drawdown": -8.98,
+      "profit_factor": 1.1,
+      "r_dd_ratio": 1.04,
+      "yearly": [
+        {
+          "year": "2024",
+          "total_r": 2.39,
+          "trades": 137,
+          "win_rate": 42.3
+        },
+        {
+          "year": "2025",
+          "total_r": 5.61,
+          "trades": 124,
+          "win_rate": 43.5
+        },
+        {
+          "year": "2026",
+          "total_r": 1.34,
+          "trades": 35,
+          "win_rate": 42.9
+        }
+      ]
+    },
+    "06:00_REVERSE_1.5": {
+      "block_start": "06:00",
+      "mode": "REVERSE",
+      "rr_ratio": 1.5,
+      "total_r": -2.46,
+      "trades": 349,
+      "win_rate": 39.26,
+      "max_drawdown": -21.12,
+      "profit_factor": 0.98,
+      "r_dd_ratio": -0.12,
+      "yearly": [
+        {
+          "year": "2024",
+          "total_r": 8.18,
+          "trades": 157,
+          "win_rate": 42.7
+        },
+        {
+          "year": "2025",
+          "total_r": -13.75,
+          "trades": 147,
+          "win_rate": 33.3
+        },
+        {
+          "year": "2026",
+          "total_r": 3.11,
+          "trades": 45,
+          "win_rate": 46.7
+        }
+      ]
+    },
+    "07:00_TREND_2.0": {
+      "block_start": "07:00",
+      "mode": "TREND",
+      "rr_ratio": 2.0,
+      "total_r": 8.88,
+      "trades": 297,
+      "win_rate": 38.72,
+      "max_drawdown": -9.27,
+      "profit_factor": 1.1,
+      "r_dd_ratio": 0.96,
+      "yearly": [
+        {
+          "year": "2024",
+          "total_r": 4.23,
+          "trades": 137,
+          "win_rate": 39.4
+        },
+        {
+          "year": "2025",
+          "total_r": 1.31,
+          "trades": 124,
+          "win_rate": 37.1
+        },
+        {
+          "year": "2026",
+          "total_r": 3.34,
+          "trades": 36,
+          "win_rate": 41.7
+        }
+      ]
+    },
+    "07:00_REVERSE_2.0": {
+      "block_start": "07:00",
+      "mode": "REVERSE",
+      "rr_ratio": 2.0,
+      "total_r": 5.01,
+      "trades": 349,
+      "win_rate": 36.68,
+      "max_drawdown": -19.04,
+      "profit_factor": 1.04,
+      "r_dd_ratio": 0.26,
+      "yearly": [
+        {
+          "year": "2024",
+          "total_r": 8.31,
+          "trades": 157,
+          "win_rate": 39.5
+        },
+        {
+          "year": "2025",
+          "total_r": -8.83,
+          "trades": 146,
+          "win_rate": 31.5
+        },
+        {
+          "year": "2026",
+          "total_r": 5.53,
+          "trades": 46,
+          "win_rate": 43.5
+        }
+      ]
+    },
+    "07:00_TREND_1.5": {
+      "block_start": "07:00",
+      "mode": "TREND",
+      "rr_ratio": 1.5,
+      "total_r": 8.84,
+      "trades": 297,
+      "win_rate": 42.42,
+      "max_drawdown": -8.98,
+      "profit_factor": 1.1,
+      "r_dd_ratio": 0.98,
+      "yearly": [
+        {
+          "year": "2024",
+          "total_r": 2.42,
+          "trades": 137,
+          "win_rate": 42.3
+        },
+        {
+          "year": "2025",
+          "total_r": 4.88,
+          "trades": 124,
+          "win_rate": 41.9
+        },
+        {
+          "year": "2026",
+          "total_r": 1.54,
+          "trades": 36,
+          "win_rate": 44.4
+        }
+      ]
+    },
+    "07:00_REVERSE_1.5": {
+      "block_start": "07:00",
+      "mode": "REVERSE",
+      "rr_ratio": 1.5,
+      "total_r": -0.49,
+      "trades": 349,
+      "win_rate": 38.97,
+      "max_drawdown": -20.19,
+      "profit_factor": 1.0,
+      "r_dd_ratio": -0.02,
+      "yearly": [
+        {
+          "year": "2024",
+          "total_r": 8.19,
+          "trades": 157,
+          "win_rate": 42.7
+        },
+        {
+          "year": "2025",
+          "total_r": -11.74,
+          "trades": 146,
+          "win_rate": 32.9
+        },
+        {
+          "year": "2026",
+          "total_r": 3.06,
+          "trades": 46,
+          "win_rate": 45.7
+        }
+      ]
+    },
+    "08:00_TREND_2.0": {
+      "block_start": "08:00",
+      "mode": "TREND",
+      "rr_ratio": 2.0,
+      "total_r": 10.74,
+      "trades": 295,
+      "win_rate": 38.31,
+      "max_drawdown": -9.4,
+      "profit_factor": 1.12,
+      "r_dd_ratio": 1.14,
+      "yearly": [
+        {
+          "year": "2024",
+          "total_r": 4.63,
+          "trades": 135,
+          "win_rate": 39.3
+        },
+        {
+          "year": "2025",
+          "total_r": 2.0,
+          "trades": 124,
+          "win_rate": 36.3
+        },
+        {
+          "year": "2026",
+          "total_r": 4.11,
+          "trades": 36,
+          "win_rate": 41.7
+        }
+      ]
+    },
+    "08:00_REVERSE_2.0": {
+      "block_start": "08:00",
+      "mode": "REVERSE",
+      "rr_ratio": 2.0,
+      "total_r": 4.69,
+      "trades": 346,
+      "win_rate": 36.42,
+      "max_drawdown": -17.74,
+      "profit_factor": 1.04,
+      "r_dd_ratio": 0.26,
+      "yearly": [
+        {
+          "year": "2024",
+          "total_r": 7.59,
+          "trades": 156,
+          "win_rate": 39.1
+        },
+        {
+          "year": "2025",
+          "total_r": -7.79,
+          "trades": 144,
+          "win_rate": 31.2
+        },
+        {
+          "year": "2026",
+          "total_r": 4.89,
+          "trades": 46,
+          "win_rate": 43.5
+        }
+      ]
+    },
+    "08:00_TREND_1.5": {
+      "block_start": "08:00",
+      "mode": "TREND",
+      "rr_ratio": 1.5,
+      "total_r": 12.27,
+      "trades": 295,
+      "win_rate": 42.71,
+      "max_drawdown": -9.11,
+      "profit_factor": 1.14,
+      "r_dd_ratio": 1.35,
+      "yearly": [
+        {
+          "year": "2024",
+          "total_r": 3.25,
+          "trades": 135,
+          "win_rate": 43.0
+        },
+        {
+          "year": "2025",
+          "total_r": 6.71,
+          "trades": 124,
+          "win_rate": 41.9
+        },
+        {
+          "year": "2026",
+          "total_r": 2.31,
+          "trades": 36,
+          "win_rate": 44.4
+        }
+      ]
+    },
+    "08:00_REVERSE_1.5": {
+      "block_start": "08:00",
+      "mode": "REVERSE",
+      "rr_ratio": 1.5,
+      "total_r": -1.31,
+      "trades": 346,
+      "win_rate": 38.73,
+      "max_drawdown": -18.89,
+      "profit_factor": 0.99,
+      "r_dd_ratio": -0.07,
+      "yearly": [
+        {
+          "year": "2024",
+          "total_r": 6.97,
+          "trades": 156,
+          "win_rate": 42.3
+        },
+        {
+          "year": "2025",
+          "total_r": -10.7,
+          "trades": 144,
+          "win_rate": 32.6
+        },
+        {
+          "year": "2026",
+          "total_r": 2.42,
+          "trades": 46,
+          "win_rate": 45.7
+        }
+      ]
+    },
+    "09:00_TREND_2.0": {
+      "block_start": "09:00",
+      "mode": "TREND",
+      "rr_ratio": 2.0,
+      "total_r": 11.08,
+      "trades": 294,
+      "win_rate": 38.78,
+      "max_drawdown": -9.44,
+      "profit_factor": 1.12,
+      "r_dd_ratio": 1.17,
+      "yearly": [
+        {
+          "year": "2024",
+          "total_r": 4.6,
+          "trades": 134,
+          "win_rate": 38.8
+        },
+        {
+          "year": "2025",
+          "total_r": 2.69,
+          "trades": 125,
+          "win_rate": 36.8
+        },
+        {
+          "year": "2026",
+          "total_r": 3.79,
+          "trades": 35,
+          "win_rate": 45.7
+        }
+      ]
+    },
+    "09:00_REVERSE_2.0": {
+      "block_start": "09:00",
+      "mode": "REVERSE",
+      "rr_ratio": 2.0,
+      "total_r": 4.42,
+      "trades": 345,
+      "win_rate": 36.81,
+      "max_drawdown": -17.96,
+      "profit_factor": 1.04,
+      "r_dd_ratio": 0.25,
+      "yearly": [
+        {
+          "year": "2024",
+          "total_r": 7.14,
+          "trades": 155,
+          "win_rate": 38.7
+        },
+        {
+          "year": "2025",
+          "total_r": -8.11,
+          "trades": 145,
+          "win_rate": 31.7
+        },
+        {
+          "year": "2026",
+          "total_r": 5.39,
+          "trades": 45,
+          "win_rate": 46.7
+        }
+      ]
+    },
+    "09:00_TREND_1.5": {
+      "block_start": "09:00",
+      "mode": "TREND",
+      "rr_ratio": 1.5,
+      "total_r": 12.44,
+      "trades": 294,
+      "win_rate": 43.54,
+      "max_drawdown": -9.14,
+      "profit_factor": 1.14,
+      "r_dd_ratio": 1.36,
+      "yearly": [
+        {
+          "year": "2024",
+          "total_r": 3.15,
+          "trades": 134,
+          "win_rate": 42.5
+        },
+        {
+          "year": "2025",
+          "total_r": 7.3,
+          "trades": 125,
+          "win_rate": 43.2
+        },
+        {
+          "year": "2026",
+          "total_r": 1.99,
+          "trades": 35,
+          "win_rate": 48.6
+        }
+      ]
+    },
+    "09:00_REVERSE_1.5": {
+      "block_start": "09:00",
+      "mode": "REVERSE",
+      "rr_ratio": 1.5,
+      "total_r": -1.61,
+      "trades": 345,
+      "win_rate": 39.13,
+      "max_drawdown": -19.11,
+      "profit_factor": 0.99,
+      "r_dd_ratio": -0.08,
+      "yearly": [
+        {
+          "year": "2024",
+          "total_r": 6.52,
+          "trades": 155,
+          "win_rate": 41.9
+        },
+        {
+          "year": "2025",
+          "total_r": -11.02,
+          "trades": 145,
+          "win_rate": 33.1
+        },
+        {
+          "year": "2026",
+          "total_r": 2.89,
+          "trades": 45,
+          "win_rate": 48.9
+        }
+      ]
+    },
+    "10:00_TREND_2.0": {
+      "block_start": "10:00",
+      "mode": "TREND",
+      "rr_ratio": 2.0,
+      "total_r": 11.16,
+      "trades": 294,
+      "win_rate": 39.12,
+      "max_drawdown": -9.79,
+      "profit_factor": 1.12,
+      "r_dd_ratio": 1.14,
+      "yearly": [
+        {
+          "year": "2024",
+          "total_r": 5.68,
+          "trades": 135,
+          "win_rate": 40.0
+        },
+        {
+          "year": "2025",
+          "total_r": 1.35,
+          "trades": 124,
+          "win_rate": 36.3
+        },
+        {
+          "year": "2026",
+          "total_r": 4.13,
+          "trades": 35,
+          "win_rate": 45.7
+        }
+      ]
+    },
+    "10:00_REVERSE_2.0": {
+      "block_start": "10:00",
+      "mode": "REVERSE",
+      "rr_ratio": 2.0,
+      "total_r": 2.27,
+      "trades": 347,
+      "win_rate": 36.89,
+      "max_drawdown": -18.65,
+      "profit_factor": 1.02,
+      "r_dd_ratio": 0.12,
+      "yearly": [
+        {
+          "year": "2024",
+          "total_r": 6.4,
+          "trades": 156,
+          "win_rate": 39.1
+        },
+        {
+          "year": "2025",
+          "total_r": -8.7,
+          "trades": 146,
+          "win_rate": 31.5
+        },
+        {
+          "year": "2026",
+          "total_r": 4.57,
+          "trades": 45,
+          "win_rate": 46.7
+        }
+      ]
+    },
+    "10:00_TREND_1.5": {
+      "block_start": "10:00",
+      "mode": "TREND",
+      "rr_ratio": 1.5,
+      "total_r": 10.86,
+      "trades": 294,
+      "win_rate": 43.54,
+      "max_drawdown": -9.49,
+      "profit_factor": 1.12,
+      "r_dd_ratio": 1.14,
+      "yearly": [
+        {
+          "year": "2024",
+          "total_r": 4.01,
+          "trades": 135,
+          "win_rate": 43.7
+        },
+        {
+          "year": "2025",
+          "total_r": 4.52,
+          "trades": 124,
+          "win_rate": 41.9
+        },
+        {
+          "year": "2026",
+          "total_r": 2.33,
+          "trades": 35,
+          "win_rate": 48.6
+        }
+      ]
+    },
+    "10:00_REVERSE_1.5": {
+      "block_start": "10:00",
+      "mode": "REVERSE",
+      "rr_ratio": 1.5,
+      "total_r": -3.78,
+      "trades": 347,
+      "win_rate": 39.19,
+      "max_drawdown": -19.8,
+      "profit_factor": 0.97,
+      "r_dd_ratio": -0.19,
+      "yearly": [
+        {
+          "year": "2024",
+          "total_r": 5.78,
+          "trades": 156,
+          "win_rate": 42.3
+        },
+        {
+          "year": "2025",
+          "total_r": -11.61,
+          "trades": 146,
+          "win_rate": 32.9
+        },
+        {
+          "year": "2026",
+          "total_r": 2.05,
+          "trades": 45,
+          "win_rate": 48.9
+        }
+      ]
+    },
+    "11:00_TREND_2.0": {
+      "block_start": "11:00",
+      "mode": "TREND",
+      "rr_ratio": 2.0,
+      "total_r": 12.89,
+      "trades": 296,
+      "win_rate": 38.85,
+      "max_drawdown": -9.57,
+      "profit_factor": 1.14,
+      "r_dd_ratio": 1.35,
+      "yearly": [
+        {
+          "year": "2024",
+          "total_r": 6.67,
+          "trades": 136,
+          "win_rate": 40.4
+        },
+        {
+          "year": "2025",
+          "total_r": 1.8,
+          "trades": 124,
+          "win_rate": 36.3
+        },
+        {
+          "year": "2026",
+          "total_r": 4.42,
+          "trades": 36,
+          "win_rate": 41.7
+        }
+      ]
+    },
+    "11:00_REVERSE_2.0": {
+      "block_start": "11:00",
+      "mode": "REVERSE",
+      "rr_ratio": 2.0,
+      "total_r": -2.85,
+      "trades": 348,
+      "win_rate": 35.92,
+      "max_drawdown": -21.01,
+      "profit_factor": 0.98,
+      "r_dd_ratio": -0.14,
+      "yearly": [
+        {
+          "year": "2024",
+          "total_r": 6.29,
+          "trades": 157,
+          "win_rate": 38.9
+        },
+        {
+          "year": "2025",
+          "total_r": -13.54,
+          "trades": 145,
+          "win_rate": 29.7
+        },
+        {
+          "year": "2026",
+          "total_r": 4.4,
+          "trades": 46,
+          "win_rate": 45.7
+        }
+      ]
+    },
+    "11:00_TREND_1.5": {
+      "block_start": "11:00",
+      "mode": "TREND",
+      "rr_ratio": 1.5,
+      "total_r": 11.87,
+      "trades": 296,
+      "win_rate": 42.91,
+      "max_drawdown": -9.27,
+      "profit_factor": 1.13,
+      "r_dd_ratio": 1.28,
+      "yearly": [
+        {
+          "year": "2024",
+          "total_r": 4.36,
+          "trades": 136,
+          "win_rate": 43.4
+        },
+        {
+          "year": "2025",
+          "total_r": 4.89,
+          "trades": 124,
+          "win_rate": 41.9
+        },
+        {
+          "year": "2026",
+          "total_r": 2.62,
+          "trades": 36,
+          "win_rate": 44.4
+        }
+      ]
+    },
+    "11:00_REVERSE_1.5": {
+      "block_start": "11:00",
+      "mode": "REVERSE",
+      "rr_ratio": 1.5,
+      "total_r": -8.44,
+      "trades": 348,
+      "win_rate": 38.22,
+      "max_drawdown": -22.13,
+      "profit_factor": 0.93,
+      "r_dd_ratio": -0.38,
+      "yearly": [
+        {
+          "year": "2024",
+          "total_r": 5.67,
+          "trades": 157,
+          "win_rate": 42.0
+        },
+        {
+          "year": "2025",
+          "total_r": -15.95,
+          "trades": 145,
+          "win_rate": 31.0
+        },
+        {
+          "year": "2026",
+          "total_r": 1.84,
+          "trades": 46,
+          "win_rate": 47.8
+        }
+      ]
+    },
+    "12:00_TREND_2.0": {
+      "block_start": "12:00",
+      "mode": "TREND",
+      "rr_ratio": 2.0,
+      "total_r": 14.22,
+      "trades": 295,
+      "win_rate": 38.64,
+      "max_drawdown": -9.54,
+      "profit_factor": 1.15,
+      "r_dd_ratio": 1.49,
+      "yearly": [
+        {
+          "year": "2024",
+          "total_r": 6.69,
+          "trades": 135,
+          "win_rate": 40.7
+        },
+        {
+          "year": "2025",
+          "total_r": 2.42,
+          "trades": 124,
+          "win_rate": 35.5
+        },
+        {
+          "year": "2026",
+          "total_r": 5.11,
+          "trades": 36,
+          "win_rate": 41.7
+        }
+      ]
+    },
+    "12:00_REVERSE_2.0": {
+      "block_start": "12:00",
+      "mode": "REVERSE",
+      "rr_ratio": 2.0,
+      "total_r": -0.77,
+      "trades": 347,
+      "win_rate": 36.31,
+      "max_drawdown": -21.31,
+      "profit_factor": 0.99,
+      "r_dd_ratio": -0.04,
+      "yearly": [
+        {
+          "year": "2024",
+          "total_r": 8.69,
+          "trades": 156,
+          "win_rate": 39.7
+        },
+        {
+          "year": "2025",
+          "total_r": -13.84,
+          "trades": 145,
+          "win_rate": 29.7
+        },
+        {
+          "year": "2026",
+          "total_r": 4.38,
+          "trades": 46,
+          "win_rate": 45.7
+        }
+      ]
+    },
+    "12:00_TREND_1.5": {
+      "block_start": "12:00",
+      "mode": "TREND",
+      "rr_ratio": 1.5,
+      "total_r": 15.28,
+      "trades": 295,
+      "win_rate": 43.39,
+      "max_drawdown": -9.24,
+      "profit_factor": 1.17,
+      "r_dd_ratio": 1.65,
+      "yearly": [
+        {
+          "year": "2024",
+          "total_r": 4.38,
+          "trades": 135,
+          "win_rate": 43.7
+        },
+        {
+          "year": "2025",
+          "total_r": 6.57,
+          "trades": 124,
+          "win_rate": 41.9
+        },
+        {
+          "year": "2026",
+          "total_r": 4.33,
+          "trades": 36,
+          "win_rate": 47.2
+        }
+      ]
+    },
+    "12:00_REVERSE_1.5": {
+      "block_start": "12:00",
+      "mode": "REVERSE",
+      "rr_ratio": 1.5,
+      "total_r": -8.76,
+      "trades": 347,
+      "win_rate": 38.33,
+      "max_drawdown": -22.43,
+      "profit_factor": 0.93,
+      "r_dd_ratio": -0.39,
+      "yearly": [
+        {
+          "year": "2024",
+          "total_r": 5.72,
+          "trades": 156,
+          "win_rate": 42.3
+        },
+        {
+          "year": "2025",
+          "total_r": -16.25,
+          "trades": 145,
+          "win_rate": 31.0
+        },
+        {
+          "year": "2026",
+          "total_r": 1.77,
+          "trades": 46,
+          "win_rate": 47.8
+        }
+      ]
+    },
+    "13:00_TREND_2.0": {
+      "block_start": "13:00",
+      "mode": "TREND",
+      "rr_ratio": 2.0,
+      "total_r": 13.63,
+      "trades": 298,
+      "win_rate": 39.6,
+      "max_drawdown": -10.11,
+      "profit_factor": 1.14,
+      "r_dd_ratio": 1.35,
+      "yearly": [
+        {
+          "year": "2024",
+          "total_r": 5.31,
+          "trades": 136,
+          "win_rate": 41.2
+        },
+        {
+          "year": "2025",
+          "total_r": 3.91,
+          "trades": 126,
+          "win_rate": 37.3
+        },
+        {
+          "year": "2026",
+          "total_r": 4.41,
+          "trades": 36,
+          "win_rate": 41.7
+        }
+      ]
+    },
+    "13:00_REVERSE_2.0": {
+      "block_start": "13:00",
+      "mode": "REVERSE",
+      "rr_ratio": 2.0,
+      "total_r": -0.01,
+      "trades": 350,
+      "win_rate": 36.86,
+      "max_drawdown": -21.36,
+      "profit_factor": 1.0,
+      "r_dd_ratio": -0.0,
+      "yearly": [
+        {
+          "year": "2024",
+          "total_r": 8.52,
+          "trades": 157,
+          "win_rate": 40.1
+        },
+        {
+          "year": "2025",
+          "total_r": -13.88,
+          "trades": 147,
+          "win_rate": 30.6
+        },
+        {
+          "year": "2026",
+          "total_r": 5.35,
+          "trades": 46,
+          "win_rate": 45.7
+        }
+      ]
+    },
+    "13:00_TREND_1.5": {
+      "block_start": "13:00",
+      "mode": "TREND",
+      "rr_ratio": 1.5,
+      "total_r": 14.07,
+      "trades": 298,
+      "win_rate": 44.3,
+      "max_drawdown": -9.73,
+      "profit_factor": 1.15,
+      "r_dd_ratio": 1.45,
+      "yearly": [
+        {
+          "year": "2024",
+          "total_r": 4.07,
+          "trades": 136,
+          "win_rate": 44.9
+        },
+        {
+          "year": "2025",
+          "total_r": 6.5,
+          "trades": 126,
+          "win_rate": 42.9
+        },
+        {
+          "year": "2026",
+          "total_r": 3.5,
+          "trades": 36,
+          "win_rate": 47.2
+        }
+      ]
+    },
+    "13:00_REVERSE_1.5": {
+      "block_start": "13:00",
+      "mode": "REVERSE",
+      "rr_ratio": 1.5,
+      "total_r": -8.09,
+      "trades": 350,
+      "win_rate": 39.14,
+      "max_drawdown": -22.48,
+      "profit_factor": 0.94,
+      "r_dd_ratio": -0.36,
+      "yearly": [
+        {
+          "year": "2024",
+          "total_r": 5.56,
+          "trades": 157,
+          "win_rate": 43.3
+        },
+        {
+          "year": "2025",
+          "total_r": -16.29,
+          "trades": 147,
+          "win_rate": 32.0
+        },
+        {
+          "year": "2026",
+          "total_r": 2.64,
+          "trades": 46,
+          "win_rate": 47.8
+        }
+      ]
+    }
+  }
+}

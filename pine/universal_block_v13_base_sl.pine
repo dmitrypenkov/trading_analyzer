@@ -1,0 +1,733 @@
+//@version=5
+indicator("Universal Block & Session Manager v13.0 (Base SL + RR | Losing Defaults)", shorttitle="Universal Block v13 BaseSL", overlay=true, max_labels_count=500, max_lines_count=500, max_boxes_count=500)
+
+// ==========================================
+// 0. WEBHOOK
+// ==========================================
+grp_hook = "WEBHOOK"
+webhook_token = input.string("", "Webhook Token (secret)", group=grp_hook)
+
+// ==========================================
+// 1. ГЛОБАЛЬНЫЕ НАСТРОЙКИ (ВИЗУАЛ)
+// ==========================================
+grp_vis = "ВИЗУАЛ (VISUALS)"
+block_bg_enabled    = input.bool(true, "Фон Блока", group=grp_vis)
+block_lines_enabled = input.bool(true, "Линии Блока", group=grp_vis)
+block_mid_enabled   = input.bool(true, "Линия 50% (EQ)", group=grp_vis)
+show_labels         = input.bool(true, "Метки на линиях (Labels)", group=grp_vis)
+show_day_sep        = input.bool(true, "Вертикальный разделитель (Начало Блока)", group=grp_vis)
+block_color         = input.color(color.new(color.blue, 0), "Цвет Блока", group=grp_vis)
+
+session_bg_enabled    = input.bool(true, "Фон Сессии", group=grp_vis)
+session_lines_enabled = input.bool(true, "Линии Сессии", group=grp_vis)
+session_color         = input.color(color.new(color.orange, 0), "Цвет Сессии", group=grp_vis)
+
+extra_levels_enabled = input.bool(true, "Показывать SL/TP уровни", group=grp_vis)
+extra_style_str      = input.string("Dashed", "Стиль линий SL/TP", options=["Solid", "Dashed", "Dotted"], group=grp_vis)
+extra_width          = input.int(2, "Толщина линий SL/TP", minval=1, maxval=5, group=grp_vis)
+
+color_profit = input.color(color.new(color.green, 0), "Цвет ПРИБЫЛИ (TP)", group=grp_vis)
+color_loss   = input.color(color.new(color.red, 0), "Цвет СТОПА (SL)", group=grp_vis)
+
+table_enabled  = input.bool(true, "Таблица данных", group=grp_vis)
+table_position = input.string("Справа вверху", "Позиция таблицы", options=["Справа вверху", "По центру вверху", "Слева вверху"], group=grp_vis)
+
+// Время сессии по умолчанию (используется только для инструментов без пресета — DEFAULT)
+session_time_input = input.session("0300-2000", "Время Сессии для OTHER (UTC)", group="ВИЗУАЛ (VISUALS)")
+
+// ==========================================
+// 1b. РЕЗУЛЬТАТЫ СЕССИЙ
+// ==========================================
+grp_results = "РЕЗУЛЬТАТЫ (RESULTS)"
+show_results    = input.bool(true, "Показывать результаты сессий", group=grp_results)
+results_days    = input.int(30, "Период статистики (дней)", minval=1, maxval=365, group=grp_results)
+
+// ==========================================
+// 2. ПРЕСЕТЫ (Base SL + SL Mult + RR)
+// ==========================================
+// Формула: SL dist = Base SL + (Range × SL Mult)
+//          TP dist = SL dist × RR
+
+// --- NAS100 ---
+// Losing config: REVERSE | block 20:00-02:00 | sl_mult=0.10 | RR=2.0 | Backtest 2024-2026: -107.3%
+grp_nas = "ПРЕСЕТ: NAS100"
+nas_use     = input.string("REVERSE", "Стратегия", options=["TREND", "REVERSE"], group=grp_nas)
+nas_time    = input.session("2000-0200", "Время Блока", group=grp_nas)
+nas_session = input.session("0300-2000", "Время Сессии", group=grp_nas)
+nas_base_sl = input.float(100.0, "Base SL (pts)", step=1.0, group=grp_nas)
+nas_sl_mult = input.float(0.10, "SL Mult", step=0.01, group=grp_nas)
+nas_rr      = input.float(2.0, "RR (TP/SL)", step=0.1, group=grp_nas)
+
+// --- SP500 ---
+grp_spx = "ПРЕСЕТ: SP500"
+spx_use     = input.string("TREND", "Стратегия", options=["TREND", "REVERSE"], group=grp_spx)
+spx_time    = input.session("2000-0200", "Время Блока", group=grp_spx)
+spx_session = input.session("0300-2000", "Время Сессии", group=grp_spx)
+spx_base_sl = input.float(22.0, "Base SL (pts)", step=1.0, group=grp_spx)
+spx_sl_mult = input.float(0.10, "SL Mult", step=0.01, group=grp_spx)
+spx_rr      = input.float(1.4, "RR (TP/SL)", step=0.1, group=grp_spx)
+
+// --- GER40 ---
+// Losing config: REVERSE | block 20:00-02:00 | sl_mult=0.30 | RR=1.5 | Backtest 2024-2026: -21.0%
+grp_ger = "ПРЕСЕТ: GER40"
+ger_use     = input.string("REVERSE", "Стратегия", options=["TREND", "REVERSE"], group=grp_ger)
+ger_time    = input.session("2000-0200", "Время Блока", group=grp_ger)
+ger_session = input.session("0700-2000", "Время Сессии", group=grp_ger)
+ger_base_sl = input.float(80.0, "Base SL (pts)", step=1.0, group=grp_ger)
+ger_sl_mult = input.float(0.30, "SL Mult", step=0.01, group=grp_ger)
+ger_rr      = input.float(1.5, "RR (TP/SL)", step=0.1, group=grp_ger)
+
+// --- JP225 ---
+grp_jp = "ПРЕСЕТ: JP225"
+jp_use     = input.string("TREND", "Стратегия", options=["TREND", "REVERSE"], group=grp_jp)
+jp_time    = input.session("2000-0200", "Время Блока", group=grp_jp)
+jp_session = input.session("0300-2000", "Время Сессии", group=grp_jp)
+jp_base_sl = input.float(150.0, "Base SL (pts)", step=1.0, group=grp_jp)
+jp_sl_mult = input.float(0.10, "SL Mult", step=0.01, group=grp_jp)
+jp_rr      = input.float(1.2, "RR (TP/SL)", step=0.1, group=grp_jp)
+
+// --- XAUUSD ---
+// Losing config: REVERSE | block 20:00-02:00 | sl_mult=0.10 | RR=1.5 | Backtest 2024-2026: -128.8%
+grp_gold = "ПРЕСЕТ: GOLD (XAUUSD)"
+gold_use     = input.string("REVERSE", "Стратегия", options=["TREND", "REVERSE"], group=grp_gold)
+gold_time    = input.session("2000-0200", "Время Блока", group=grp_gold)
+gold_session = input.session("0300-2000", "Время Сессии", group=grp_gold)
+gold_base_sl = input.float(20.0, "Base SL (pts)", step=1.0, group=grp_gold)
+gold_sl_mult = input.float(0.10, "SL Mult", step=0.01, group=grp_gold)
+gold_rr      = input.float(1.5, "RR (TP/SL)", step=0.1, group=grp_gold)
+
+// --- XAGUSD ---
+grp_silv = "ПРЕСЕТ: SILVER (XAGUSD)"
+silv_use     = input.string("TREND", "Стратегия", options=["TREND", "REVERSE"], group=grp_silv)
+silv_time    = input.session("2000-0200", "Время Блока", group=grp_silv)
+silv_session = input.session("0300-2000", "Время Сессии", group=grp_silv)
+silv_base_sl = input.float(0.3, "Base SL (pts)", step=0.01, group=grp_silv)
+silv_sl_mult = input.float(0.20, "SL Mult", step=0.01, group=grp_silv)
+silv_rr      = input.float(1.0, "RR (TP/SL)", step=0.1, group=grp_silv)
+
+// --- EURUSD ---
+// Losing config: TREND | block 20:00-02:00 | sl_mult=0.10 | RR=2.0 | Backtest 2024-2026: -107.4%
+grp_eur = "ПРЕСЕТ: EURUSD"
+eur_use     = input.string("TREND", "Стратегия", options=["TREND", "REVERSE"], group=grp_eur)
+eur_time    = input.session("2000-0200", "Время Блока", group=grp_eur)
+eur_session = input.session("0300-2000", "Время Сессии", group=grp_eur)
+eur_base_sl = input.float(0.002, "Base SL (pts)", step=0.001, group=grp_eur)
+eur_sl_mult = input.float(0.10, "SL Mult", step=0.01, group=grp_eur)
+eur_rr      = input.float(2.0, "RR (TP/SL)", step=0.1, group=grp_eur)
+
+// --- GBPUSD ---
+grp_gbp = "ПРЕСЕТ: GBPUSD"
+gbp_use     = input.string("TREND", "Стратегия", options=["TREND", "REVERSE"], group=grp_gbp)
+gbp_time    = input.session("2000-0200", "Время Блока", group=grp_gbp)
+gbp_session = input.session("0300-2000", "Время Сессии", group=grp_gbp)
+gbp_base_sl = input.float(0.002, "Base SL (pts)", step=0.001, group=grp_gbp)
+gbp_sl_mult = input.float(0.20, "SL Mult", step=0.01, group=grp_gbp)
+gbp_rr      = input.float(1.0, "RR (TP/SL)", step=0.1, group=grp_gbp)
+
+// --- USDCHF ---
+// Losing config: REVERSE | block 20:00-02:00 | sl_mult=0.30 | RR=1.5 | Backtest 2024-2026: -81.3%
+grp_chf = "ПРЕСЕТ: USDCHF"
+chf_use     = input.string("REVERSE", "Стратегия", options=["TREND", "REVERSE"], group=grp_chf)
+chf_time    = input.session("2000-0200", "Время Блока", group=grp_chf)
+chf_session = input.session("0300-2000", "Время Сессии", group=grp_chf)
+chf_base_sl = input.float(0.002, "Base SL (pts)", step=0.001, group=grp_chf)
+chf_sl_mult = input.float(0.30, "SL Mult", step=0.01, group=grp_chf)
+chf_rr      = input.float(1.5, "RR (TP/SL)", step=0.1, group=grp_chf)
+
+// --- USDJPY ---
+// Losing config W2: REVERSE | block 16:00-00:15 | session 00:30-20:00 | sl_mult=0.10 | RR=1.5 | Backtest 2024-2026: -182.6%
+// Losing config W1: REVERSE | block 20:00-02:00 | session 03:00-20:00 | sl_mult=0.10 | RR=1.5 | Backtest 2024-2026: -154.5%
+grp_jpy = "ПРЕСЕТ: USDJPY"
+jpy_use     = input.string("REVERSE", "Стратегия", options=["TREND", "REVERSE"], group=grp_jpy)
+jpy_time    = input.session("1600-0015", "Время Блока", group=grp_jpy)
+jpy_session = input.session("0030-2000", "Время Сессии", group=grp_jpy)
+jpy_base_sl = input.float(0.15, "Base SL (pts)", step=0.01, group=grp_jpy)
+jpy_sl_mult = input.float(0.10, "SL Mult", step=0.01, group=grp_jpy)
+jpy_rr      = input.float(1.5, "RR (TP/SL)", step=0.1, group=grp_jpy)
+
+// --- DEFAULT ---
+grp_def = "ПРЕСЕТ: ПО УМОЛЧАНИЮ (OTHER)"
+def_use     = input.string("TREND", "Стратегия", options=["TREND", "REVERSE"], group=grp_def)
+def_time    = input.session("2000-0200", "Время Блока", group=grp_def)
+// Сессия для DEFAULT берётся из глобального параметра "Время Сессии для OTHER" (ВИЗУАЛ)
+def_base_sl = input.float(10.0, "Base SL (pts)", step=1.0, group=grp_def)
+def_sl_mult = input.float(0.20, "SL Mult", step=0.01, group=grp_def)
+def_rr      = input.float(1.0, "RR (TP/SL)", step=0.1, group=grp_def)
+
+// ==========================================
+// 3. АВТО-ВЫБОР (MAPPING)
+// ==========================================
+
+var string cur_time = na
+var string cur_session_time = na
+var float cur_base_sl = na
+var float cur_sl_mult = na
+var float cur_rr = na
+var string cur_name = na
+var string cur_mode = na
+
+contains(str, substr) => str.contains(str, substr)
+
+t_name = syminfo.ticker
+t_root = syminfo.root
+
+if barstate.isfirst or barstate.islast
+    if contains(t_name, "NAS") or contains(t_name, "US100") or contains(t_root, "NQ")
+        cur_name         := "NAS100"
+        cur_mode         := nas_use
+        cur_time         := nas_time
+        cur_session_time := nas_session
+        cur_base_sl      := nas_base_sl
+        cur_sl_mult      := nas_sl_mult
+        cur_rr           := nas_rr
+    else if contains(t_name, "SP") or contains(t_name, "US500") or contains(t_root, "ES")
+        cur_name         := "SP500"
+        cur_mode         := spx_use
+        cur_time         := spx_time
+        cur_session_time := spx_session
+        cur_base_sl      := spx_base_sl
+        cur_sl_mult      := spx_sl_mult
+        cur_rr           := spx_rr
+    else if contains(t_name, "GER") or contains(t_name, "DE40") or contains(t_name, "DAX")
+        cur_name         := "GER40"
+        cur_mode         := ger_use
+        cur_time         := ger_time
+        cur_session_time := ger_session
+        cur_base_sl      := ger_base_sl
+        cur_sl_mult      := ger_sl_mult
+        cur_rr           := ger_rr
+    else if contains(t_name, "JP225") or contains(t_name, "JPN225") or contains(t_name, "NI225") or contains(t_name, "NIKKEI") or contains(t_root, "NKD")
+        cur_name         := "JP225"
+        cur_mode         := jp_use
+        cur_time         := jp_time
+        cur_session_time := jp_session
+        cur_base_sl      := jp_base_sl
+        cur_sl_mult      := jp_sl_mult
+        cur_rr           := jp_rr
+    else if contains(t_name, "XAU") or contains(t_name, "GOLD") or contains(t_root, "GC")
+        cur_name         := "XAUUSD"
+        cur_mode         := gold_use
+        cur_time         := gold_time
+        cur_session_time := gold_session
+        cur_base_sl      := gold_base_sl
+        cur_sl_mult      := gold_sl_mult
+        cur_rr           := gold_rr
+    else if contains(t_name, "XAG") or contains(t_name, "SILVER") or contains(t_root, "SI")
+        cur_name         := "XAGUSD"
+        cur_mode         := silv_use
+        cur_time         := silv_time
+        cur_session_time := silv_session
+        cur_base_sl      := silv_base_sl
+        cur_sl_mult      := silv_sl_mult
+        cur_rr           := silv_rr
+    else if contains(t_name, "GBP") or contains(t_name, "GBPUSD") or contains(t_root, "6B")
+        cur_name         := "GBPUSD"
+        cur_mode         := gbp_use
+        cur_time         := gbp_time
+        cur_session_time := gbp_session
+        cur_base_sl      := gbp_base_sl
+        cur_sl_mult      := gbp_sl_mult
+        cur_rr           := gbp_rr
+    else if contains(t_name, "EUR") or contains(t_name, "EURUSD") or contains(t_root, "6E")
+        cur_name         := "EURUSD"
+        cur_mode         := eur_use
+        cur_time         := eur_time
+        cur_session_time := eur_session
+        cur_base_sl      := eur_base_sl
+        cur_sl_mult      := eur_sl_mult
+        cur_rr           := eur_rr
+    else if contains(t_name, "CHF") or contains(t_name, "USDCHF")
+        cur_name         := "USDCHF"
+        cur_mode         := chf_use
+        cur_time         := chf_time
+        cur_session_time := chf_session
+        cur_base_sl      := chf_base_sl
+        cur_sl_mult      := chf_sl_mult
+        cur_rr           := chf_rr
+    else if contains(t_name, "JPY") or contains(t_name, "USDJPY")
+        cur_name         := "USDJPY"
+        cur_mode         := jpy_use
+        cur_time         := jpy_time
+        cur_session_time := jpy_session
+        cur_base_sl      := jpy_base_sl
+        cur_sl_mult      := jpy_sl_mult
+        cur_rr           := jpy_rr
+    else
+        cur_name         := "DEFAULT"
+        cur_mode         := def_use
+        cur_time         := def_time
+        cur_session_time := session_time_input
+        cur_base_sl      := def_base_sl
+        cur_sl_mult      := def_sl_mult
+        cur_rr           := def_rr
+
+// ==========================================
+// 4. МАТЕМАТИКА И ЛОГИКА
+// ==========================================
+
+is_in_session(session_spec) =>
+    parts = str.split(session_spec, "-")
+    start_str = array.get(parts, 0)
+    end_str = array.get(parts, 1)
+    start_hour = int(str.tonumber(str.substring(start_str, 0, 2)))
+    start_minute = int(str.tonumber(str.substring(start_str, 2, 4)))
+    end_hour = int(str.tonumber(str.substring(end_str, 0, 2)))
+    end_minute = int(str.tonumber(str.substring(end_str, 2, 4)))
+    current_hour = hour(time, "UTC")
+    current_minute = minute(time, "UTC")
+    start_total_minutes = start_hour * 60 + start_minute
+    end_total_minutes = end_hour * 60 + end_minute
+    current_total_minutes = current_hour * 60 + current_minute
+    if start_total_minutes > end_total_minutes
+        current_total_minutes >= start_total_minutes or current_total_minutes < end_total_minutes
+    else
+        current_total_minutes >= start_total_minutes and current_total_minutes < end_total_minutes
+
+var float block_high = na
+var float block_low = na
+var int block_start_bar = na
+var bool block_active = false
+var line block_high_line = na
+var line block_low_line = na
+var line block_mid_line = na
+var line line_h_far = na
+var line line_h_near = na
+var line line_l_far = na
+var line line_l_near = na
+
+var label lbl_h_far = na
+var label lbl_h_near = na
+var label lbl_l_far = na
+var label lbl_l_near = na
+
+var float session_high = na
+var float session_low = na
+var int session_start_bar = na
+var bool session_active = false
+var line session_high_line = na
+var line session_low_line = na
+
+var table info_table = na
+
+// --- БЛОК ---
+block_in_session = is_in_session(cur_time)
+if block_in_session and not block_active
+    block_active := true
+    block_high := high
+    block_low := low
+    block_start_bar := bar_index
+
+    line.delete(block_high_line)
+    line.delete(block_low_line)
+    line.delete(block_mid_line)
+    line.delete(line_h_far)
+    line.delete(line_h_near)
+    line.delete(line_l_far)
+    line.delete(line_l_near)
+    label.delete(lbl_h_far)
+    label.delete(lbl_h_near)
+    label.delete(lbl_l_far)
+    label.delete(lbl_l_near)
+
+    if show_day_sep
+        line.new(bar_index, low, bar_index, high, xloc=xloc.bar_index, extend=extend.both, color=color.black, style=line.style_solid, width=1)
+
+if block_active and block_in_session
+    if high > block_high
+        block_high := high
+    if low < block_low
+        block_low := low
+
+// Detect session end: was active on previous bar, not active now → block just finalized
+block_just_ended = block_active and not block_in_session
+
+if block_active and not block_in_session
+    block_active := false
+
+// Fire webhook alert ONCE when block session just ended (not every bar).
+// Previously fired every 15-min bar (96/day × N instruments) → hit TV webhook rate limits.
+if block_just_ended and not na(block_high) and not na(block_low)
+    alert('{"token":"' + webhook_token + '","instrument":"' + cur_name + '","block_high":' + str.tostring(block_high, format.mintick) + ',"block_low":' + str.tostring(block_low, format.mintick) + '}', alert.freq_once_per_bar)
+
+// --- СЕССИЯ ---
+session_in_session = is_in_session(cur_session_time)
+if session_in_session and not session_active
+    session_active := true
+    session_high := high
+    session_low := low
+    session_start_bar := bar_index
+    line.delete(session_high_line)
+    line.delete(session_low_line)
+
+if session_active and session_in_session
+    if high > session_high
+        session_high := high
+    if low < session_low
+        session_low := low
+
+if session_active and not session_in_session
+    session_active := false
+
+// === РАСЧЕТ УРОВНЕЙ (Base SL + RR) ===
+// Вычисляем ВСЕГДА (нужно для trade tracking), рисуем только при extra_levels_enabled
+block_range = block_high - block_low
+float dist_tp = na
+float dist_sl = na
+
+if not na(block_range)
+    dist_sl := cur_base_sl + (block_range * cur_sl_mult)
+    dist_tp := dist_sl * cur_rr
+
+float val_h_far  = na
+float val_h_near = na
+float val_l_far  = na
+float val_l_near = na
+
+color c_h_far  = na
+color c_h_near = na
+color c_l_far  = na
+color c_l_near = na
+string t_h_far  = ""
+string t_h_near = ""
+string t_l_far  = ""
+string t_l_near = ""
+
+if cur_mode == "TREND"
+    val_h_far  := block_high + dist_tp
+    val_h_near := block_high - dist_sl
+    val_l_far  := block_low - dist_tp
+    val_l_near := block_low + dist_sl
+
+    c_h_far := color_profit
+    t_h_far := "TP"
+    c_h_near := color_loss
+    t_h_near := "SL"
+    c_l_far := color_profit
+    t_l_far := "TP"
+    c_l_near := color_loss
+    t_l_near := "SL"
+else
+    val_h_far  := block_high + dist_sl
+    val_h_near := block_high - dist_tp
+    val_l_far  := block_low - dist_sl
+    val_l_near := block_low + dist_tp
+
+    c_h_far := color_loss
+    t_h_far := "SL"
+    c_h_near := color_profit
+    t_h_near := "TP"
+    c_l_far := color_loss
+    t_l_far := "SL"
+    c_l_near := color_profit
+    t_l_near := "TP"
+
+// ==========================================
+// 4b. TRADE TRACKING (результаты сессий)
+// ==========================================
+
+// State machine: 0=ждём вход, 1=в сделке, 2=результат определён
+var int trade_state = 0
+var bool trade_is_long = false
+var float trade_tp = na
+var float trade_sl = na
+var string start_pos = "INSIDE"
+
+// Массивы для статистики
+var array<int> hist_times = array.new<int>()
+var array<int> hist_results = array.new<int>()  // 1=TP, -1=SL, 0=END
+
+// Старт сессии → сброс + определение start position
+if session_in_session and not session_in_session[1]
+    trade_state := 0
+    if not na(block_high) and not na(block_low)
+        if close[1] > block_high
+            start_pos := "ABOVE"
+        else if close[1] < block_low
+            start_pos := "BELOW"
+        else
+            start_pos := "INSIDE"
+
+// Alert trigger flags (per bar)
+bool entry_triggered = false
+bool sl_triggered = false
+bool tp_triggered = false
+string entry_alert_text = ""
+string sl_alert_text = ""
+string tp_alert_text = ""
+
+// Торговая логика во время сессии
+if show_results and session_in_session and not na(block_high) and not na(block_low) and not na(dist_sl) and not na(dist_tp)
+    if trade_state == 0
+        // --- Определение входа с учётом start_pos ---
+        bool valid_high = false
+        bool valid_low = false
+
+        bool raw_high = high >= block_high
+        bool raw_low = low <= block_low
+
+        if cur_mode == "TREND"
+            if start_pos == "INSIDE"
+                valid_high := raw_high
+                valid_low := raw_low
+            else if start_pos == "ABOVE"
+                valid_low := raw_low
+            else if start_pos == "BELOW"
+                valid_high := raw_high
+        else
+            if start_pos == "INSIDE"
+                valid_high := raw_high
+                valid_low := raw_low
+            else if start_pos == "ABOVE"
+                valid_high := raw_high
+            else if start_pos == "BELOW"
+                valid_low := raw_low
+
+        // Обе границы на одной свече → приоритет high
+        if valid_high and valid_low
+            valid_low := false
+
+        if valid_high
+            trade_state := 1
+            if cur_mode == "TREND"
+                trade_is_long := true
+                trade_tp := val_h_far
+                trade_sl := val_h_near
+            else
+                trade_is_long := false
+                trade_tp := val_h_near
+                trade_sl := val_h_far
+            entry_triggered := true
+            entry_alert_text := cur_name + " [" + cur_mode + "]: " + (trade_is_long ? "LONG" : "SHORT") + " вход (High) @ " + str.tostring(block_high, format.mintick) + " | TP " + str.tostring(trade_tp, format.mintick) + " | SL " + str.tostring(trade_sl, format.mintick)
+
+        else if valid_low
+            trade_state := 1
+            if cur_mode == "TREND"
+                trade_is_long := false
+                trade_tp := val_l_far
+                trade_sl := val_l_near
+            else
+                trade_is_long := true
+                trade_tp := val_l_near
+                trade_sl := val_l_far
+            entry_triggered := true
+            entry_alert_text := cur_name + " [" + cur_mode + "]: " + (trade_is_long ? "LONG" : "SHORT") + " вход (Low) @ " + str.tostring(block_low, format.mintick) + " | TP " + str.tostring(trade_tp, format.mintick) + " | SL " + str.tostring(trade_sl, format.mintick)
+
+    else if trade_state == 1
+        // --- Проверка TP/SL (SL приоритет при одновременном касании) ---
+        bool hit_sl = false
+        bool hit_tp = false
+
+        if trade_is_long
+            hit_sl := low <= trade_sl
+            hit_tp := high >= trade_tp
+        else
+            hit_sl := high >= trade_sl
+            hit_tp := low <= trade_tp
+
+        if hit_sl
+            trade_state := 2
+            sl_triggered := true
+            sl_alert_text := cur_name + " [" + cur_mode + "]: СТОП-ЛОСС " + (trade_is_long ? "LONG" : "SHORT") + " @ " + str.tostring(trade_sl, format.mintick)
+            label.new(bar_index, trade_is_long ? low : high, "SL",
+                 color=color_loss, textcolor=color.white,
+                 style=trade_is_long ? label.style_label_up : label.style_label_down,
+                 size=size.small)
+            array.push(hist_times, time)
+            array.push(hist_results, -1)
+
+        else if hit_tp
+            trade_state := 2
+            tp_triggered := true
+            tp_alert_text := cur_name + " [" + cur_mode + "]: ТЕЙК-ПРОФИТ " + (trade_is_long ? "LONG" : "SHORT") + " @ " + str.tostring(trade_tp, format.mintick)
+            label.new(bar_index, trade_is_long ? high : low, "TP",
+                 color=color_profit, textcolor=color.white,
+                 style=trade_is_long ? label.style_label_down : label.style_label_up,
+                 size=size.small)
+            array.push(hist_times, time)
+            array.push(hist_results, 1)
+
+// Конец сессии → финализация
+if show_results and not session_in_session and session_in_session[1]
+    if trade_state == 1
+        // Сделка не закрылась → END
+        label.new(bar_index, (block_high + block_low) / 2, "END",
+             color=color.gray, textcolor=color.white,
+             style=label.style_label_down, size=size.tiny)
+        array.push(hist_times, time)
+        array.push(hist_results, 0)
+    trade_state := 0
+
+// ==========================================
+// 5. АЛЕРТЫ (ENTRY / SL / TP)
+// ==========================================
+
+// alertcondition() — для раздельных push/email алертов
+alertcondition(entry_triggered, title="Вход в сделку (Entry)", message="Пробой границы блока — вход в сделку")
+alertcondition(sl_triggered, title="Стоп-лосс (SL)", message="Цена достигла уровня SL")
+alertcondition(tp_triggered, title="Тейк-профит (TP)", message="Цена достигла уровня TP")
+
+// alert() — JSON для webhook (Entry/SL/TP → Telegram уведомления)
+if entry_triggered
+    alert('{"token":"' + webhook_token + '","type":"entry","instrument":"' + cur_name + '","direction":"' + (trade_is_long ? "LONG" : "SHORT") + '","price":' + str.tostring(close, format.mintick) + '}', alert.freq_once_per_bar)
+
+if sl_triggered
+    alert('{"token":"' + webhook_token + '","type":"sl","instrument":"' + cur_name + '","price":' + str.tostring(close, format.mintick) + '}', alert.freq_once_per_bar)
+
+if tp_triggered
+    alert('{"token":"' + webhook_token + '","type":"tp","instrument":"' + cur_name + '","price":' + str.tostring(close, format.mintick) + '}', alert.freq_once_per_bar)
+
+// ==========================================
+// 6. ОТРИСОВКА
+// ==========================================
+
+fill(plot(block_bg_enabled and is_in_session(cur_time) ? block_high : na, display=display.none), plot(block_bg_enabled and is_in_session(cur_time) ? block_low : na, display=display.none), color=color.new(block_color, 85))
+fill(plot(session_bg_enabled and is_in_session(cur_session_time) ? session_high : na, display=display.none), plot(session_bg_enabled and is_in_session(cur_session_time) ? session_low : na, display=display.none), color=color.new(session_color, 85))
+
+end_bar = block_active ? bar_index + 100 : bar_index
+if block_lines_enabled and not na(block_high)
+    line.delete(block_high_line)
+    block_high_line := line.new(block_start_bar, block_high, end_bar, block_high, color=block_color, width=1)
+    line.delete(block_low_line)
+    block_low_line := line.new(block_start_bar, block_low, end_bar, block_low, color=block_color, width=1)
+
+    if block_mid_enabled
+        mid_level = block_low + (block_range / 2)
+        line.delete(block_mid_line)
+        block_mid_line := line.new(block_start_bar, mid_level, end_bar, mid_level, color=color.new(block_color, 50), width=1, style=line.style_dotted)
+
+style_line = switch extra_style_str
+    "Solid" => line.style_solid
+    "Dashed" => line.style_dashed
+    => line.style_dotted
+
+if extra_levels_enabled and not na(block_high)
+    line.delete(line_h_far)
+    line_h_far := line.new(block_start_bar, val_h_far, end_bar, val_h_far, color=c_h_far, style=style_line, width=extra_width)
+    if show_labels
+        label.delete(lbl_h_far)
+        lbl_h_far := label.new(bar_index + 3, val_h_far, text = t_h_far + " " + str.tostring(val_h_far, format.mintick), color = color(na), textcolor = c_h_far, style = label.style_none, size = size.small)
+
+    line.delete(line_h_near)
+    line_h_near := line.new(block_start_bar, val_h_near, end_bar, val_h_near, color=c_h_near, style=style_line, width=extra_width)
+    if show_labels
+        label.delete(lbl_h_near)
+        lbl_h_near := label.new(bar_index + 3, val_h_near, text = t_h_near + " " + str.tostring(val_h_near, format.mintick), color = color(na), textcolor = c_h_near, style = label.style_none, size = size.small)
+
+    line.delete(line_l_far)
+    line_l_far := line.new(block_start_bar, val_l_far, end_bar, val_l_far, color=c_l_far, style=style_line, width=extra_width)
+    if show_labels
+        label.delete(lbl_l_far)
+        lbl_l_far := label.new(bar_index + 3, val_l_far, text = t_l_far + " " + str.tostring(val_l_far, format.mintick), color = color(na), textcolor = c_l_far, style = label.style_none, size = size.small)
+
+    line.delete(line_l_near)
+    line_l_near := line.new(block_start_bar, val_l_near, end_bar, val_l_near, color=c_l_near, style=style_line, width=extra_width)
+    if show_labels
+        label.delete(lbl_l_near)
+        lbl_l_near := label.new(bar_index + 3, val_l_near, text = t_l_near + " " + str.tostring(val_l_near, format.mintick), color = color(na), textcolor = c_l_near, style = label.style_none, size = size.small)
+
+if session_lines_enabled and not na(session_high)
+    end_bar_ses = session_active ? bar_index + 100 : bar_index
+    line.delete(session_high_line)
+    session_high_line := line.new(session_start_bar, session_high, end_bar_ses, session_high, color=session_color, width=1)
+    line.delete(session_low_line)
+    session_low_line := line.new(session_start_bar, session_low, end_bar_ses, session_low, color=session_color, width=1)
+
+// ==========================================
+// 7. ТАБЛИЦА
+// ==========================================
+if barstate.islast and table_enabled
+    if not na(info_table)
+        table.delete(info_table)
+
+    t_pos = table_position == "Справа вверху" ? position.top_right : table_position == "По центру вверху" ? position.top_center : position.top_left
+    info_table := table.new(t_pos, 2, 22, bgcolor=color.white, border_width=1)
+
+    row = 0
+
+    table.cell(info_table, 0, row, cur_name + " [" + cur_mode + "]", text_color=color.white, text_size=size.small, bgcolor=color.gray)
+    table.cell(info_table, 1, row, "Range: " + str.tostring(block_range, format.mintick), text_color=color.white, text_size=size.small, bgcolor=color.gray)
+    row += 1
+
+    table.cell(info_table, 0, row, "Block High", text_color=color.black, text_size=size.small)
+    table.cell(info_table, 1, row, str.tostring(block_high, format.mintick), text_color=color.black, text_size=size.small)
+    row += 1
+
+    table.cell(info_table, 0, row, "Block Low", text_color=color.black, text_size=size.small)
+    table.cell(info_table, 1, row, str.tostring(block_low, format.mintick), text_color=color.black, text_size=size.small)
+    row += 1
+
+    if extra_levels_enabled
+        table.cell(info_table, 0, row, "PARAMS", text_color=color.white, text_size=size.small, bgcolor=color.gray)
+        table.cell(info_table, 1, row, "Base SL + RR", text_color=color.white, text_size=size.small, bgcolor=color.gray)
+        row += 1
+
+        string sl_lbl = "SL = " + str.tostring(cur_base_sl, format.mintick) + " + R×" + str.tostring(cur_sl_mult, "#.##")
+        string tp_lbl = "TP = SL × " + str.tostring(cur_rr, "#.##")
+        table.cell(info_table, 0, row, sl_lbl, text_color=color.black, text_size=size.small)
+        table.cell(info_table, 1, row, str.tostring(dist_sl, format.mintick), text_color=color.black, text_size=size.small)
+        row += 1
+        table.cell(info_table, 0, row, tp_lbl, text_color=color.black, text_size=size.small)
+        table.cell(info_table, 1, row, str.tostring(dist_tp, format.mintick), text_color=color.black, text_size=size.small)
+        row += 1
+
+        table.cell(info_table, 0, row, "LEVELS", text_color=color.white, text_size=size.small, bgcolor=color.gray)
+        table.cell(info_table, 1, row, "", bgcolor=color.gray)
+        row += 1
+
+        table.cell(info_table, 0, row, "Upper " + t_h_far, text_color=c_h_far, text_size=size.small)
+        table.cell(info_table, 1, row, str.tostring(val_h_far, format.mintick), text_color=c_h_far, text_size=size.small)
+        row += 1
+
+        table.cell(info_table, 0, row, "Upper " + t_h_near, text_color=c_h_near, text_size=size.small)
+        table.cell(info_table, 1, row, str.tostring(val_h_near, format.mintick), text_color=c_h_near, text_size=size.small)
+        row += 1
+
+        table.cell(info_table, 0, row, "Lower " + t_l_near, text_color=c_l_near, text_size=size.small)
+        table.cell(info_table, 1, row, str.tostring(val_l_near, format.mintick), text_color=c_l_near, text_size=size.small)
+        row += 1
+
+        table.cell(info_table, 0, row, "Lower " + t_l_far, text_color=c_l_far, text_size=size.small)
+        table.cell(info_table, 1, row, str.tostring(val_l_far, format.mintick), text_color=c_l_far, text_size=size.small)
+        row += 1
+
+    // --- СТАТИСТИКА РЕЗУЛЬТАТОВ ---
+    if show_results
+        int cutoff_ms = timenow - results_days * 86400 * 1000
+        int tp_count = 0
+        int sl_count = 0
+        int end_count = 0
+
+        if array.size(hist_times) > 0
+            for i = 0 to array.size(hist_times) - 1
+                if array.get(hist_times, i) >= cutoff_ms
+                    int res = array.get(hist_results, i)
+                    if res == 1
+                        tp_count += 1
+                    else if res == -1
+                        sl_count += 1
+                    else
+                        end_count += 1
+
+        int total_trades = tp_count + sl_count + end_count
+        float win_rate = total_trades > 0 ? math.round(tp_count * 100.0 / total_trades, 1) : 0.0
+
+        table.cell(info_table, 0, row, "STATS (" + str.tostring(results_days) + "d)", text_color=color.white, text_size=size.small, bgcolor=color.gray)
+        table.cell(info_table, 1, row, "", bgcolor=color.gray)
+        row += 1
+
+        table.cell(info_table, 0, row, "TP", text_color=color_profit, text_size=size.small)
+        table.cell(info_table, 1, row, str.tostring(tp_count), text_color=color_profit, text_size=size.small)
+        row += 1
+
+        table.cell(info_table, 0, row, "SL", text_color=color_loss, text_size=size.small)
+        table.cell(info_table, 1, row, str.tostring(sl_count), text_color=color_loss, text_size=size.small)
+        row += 1
+
+        table.cell(info_table, 0, row, "END", text_color=color.gray, text_size=size.small)
+        table.cell(info_table, 1, row, str.tostring(end_count), text_color=color.gray, text_size=size.small)
+        row += 1
+
+        color wr_color = win_rate >= 50 ? color_profit : color_loss
+        table.cell(info_table, 0, row, "Win%", text_color=wr_color, text_size=size.small)
+        table.cell(info_table, 1, row, str.tostring(win_rate, "#.#") + "%", text_color=wr_color, text_size=size.small)
+        row += 1

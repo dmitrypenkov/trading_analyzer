@@ -113,7 +113,18 @@ class TradingAnalyzer:
                 settings['use_return_mode'],
                 limit_only_entry=settings.get('limit_only_entry', False)
             )
-            
+
+            # Истинное зеркало: разворачиваем направление каждой сделки на тех же входах.
+            # Тип входа (ENTRY/LIMIT, TREND/REVERSE) и цена входа сохраняются — меняется
+            # только сторона. calculate_trade_levels определяет направление по 'LONG' in
+            # entry_type, поэтому флип метки даёт корректные TP/SL для противоположной стороны.
+            if settings.get('invert_signals', False):
+                et = entry_info['entry_type']
+                if et not in ('INSIDE_BLOCK', 'OUTSIDE_BLOCK'):
+                    entry_info['entry_type'] = (
+                        et.replace('LONG', '§').replace('SHORT', 'LONG').replace('§', 'SHORT')
+                    )
+
             # Базовый результат
             result = {
                 'date': date,

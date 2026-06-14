@@ -1,0 +1,532 @@
+{
+  "instrument": "NAS100",
+  "session": "14:30-20:00 UTC (после новостей, 17:30 UTC+3)",
+  "clean_period": "2024-01-01 … 2026-03-31",
+  "best": [
+    {
+      "key": "block 13:30-14:30|sess 14:30-20:00|RR0.8|sl0.2|TREND",
+      "block_start": "13:30",
+      "rr": 0.8,
+      "sl": 0.2,
+      "mode": "TREND",
+      "m": {
+        "total_r": 37.81,
+        "trades": 469,
+        "win_rate": 59.49,
+        "max_drawdown": -9.82,
+        "profit_factor": 1.27,
+        "tp": 279,
+        "sl": 161,
+        "be": 29
+      }
+    },
+    {
+      "key": "block 13:30-14:30|sess 14:30-20:00|RR0.8|sl0.1|TREND",
+      "block_start": "13:30",
+      "rr": 0.8,
+      "sl": 0.1,
+      "mode": "TREND",
+      "m": {
+        "total_r": 36.07,
+        "trades": 469,
+        "win_rate": 58.64,
+        "max_drawdown": -12.98,
+        "profit_factor": 1.24,
+        "tp": 275,
+        "sl": 167,
+        "be": 27
+      }
+    },
+    {
+      "key": "block 13:30-14:30|sess 14:30-20:00|RR2.0|sl0.2|TREND",
+      "block_start": "13:30",
+      "rr": 2.0,
+      "sl": 0.2,
+      "mode": "TREND",
+      "m": {
+        "total_r": 32.8,
+        "trades": 469,
+        "win_rate": 44.99,
+        "max_drawdown": -16.49,
+        "profit_factor": 1.2,
+        "tp": 211,
+        "sl": 217,
+        "be": 41
+      }
+    },
+    {
+      "key": "block 13:30-14:30|sess 14:30-20:00|RR2.0|sl0.1|TREND",
+      "block_start": "13:30",
+      "rr": 2.0,
+      "sl": 0.1,
+      "mode": "TREND",
+      "m": {
+        "total_r": 32.51,
+        "trades": 469,
+        "win_rate": 43.92,
+        "max_drawdown": -19.75,
+        "profit_factor": 1.18,
+        "tp": 206,
+        "sl": 225,
+        "be": 38
+      }
+    },
+    {
+      "key": "block 12:30-14:30|sess 14:30-20:00|RR2.0|sl0.1|TREND",
+      "block_start": "12:30",
+      "rr": 2.0,
+      "sl": 0.1,
+      "mode": "TREND",
+      "m": {
+        "total_r": 32.21,
+        "trades": 462,
+        "win_rate": 42.42,
+        "max_drawdown": -15.87,
+        "profit_factor": 1.18,
+        "tp": 196,
+        "sl": 227,
+        "be": 39
+      }
+    },
+    {
+      "key": "block 13:30-14:30|sess 14:30-20:00|RR1.0|sl0.1|TREND",
+      "block_start": "13:30",
+      "rr": 1.0,
+      "sl": 0.1,
+      "mode": "TREND",
+      "m": {
+        "total_r": 32.08,
+        "trades": 469,
+        "win_rate": 55.01,
+        "max_drawdown": -12.29,
+        "profit_factor": 1.2,
+        "tp": 258,
+        "sl": 181,
+        "be": 30
+      }
+    },
+    {
+      "key": "block 13:30-14:30|sess 14:30-20:00|RR2.0|sl0.3|TREND",
+      "block_start": "13:30",
+      "rr": 2.0,
+      "sl": 0.3,
+      "mode": "TREND",
+      "m": {
+        "total_r": 32.03,
+        "trades": 469,
+        "win_rate": 45.84,
+        "max_drawdown": -16.01,
+        "profit_factor": 1.21,
+        "tp": 215,
+        "sl": 213,
+        "be": 41
+      }
+    },
+    {
+      "key": "block 13:30-14:30|sess 14:30-20:00|RR1.5|sl0.2|TREND",
+      "block_start": "13:30",
+      "rr": 1.5,
+      "sl": 0.2,
+      "mode": "TREND",
+      "m": {
+        "total_r": 30.83,
+        "trades": 469,
+        "win_rate": 49.47,
+        "max_drawdown": -15.38,
+        "profit_factor": 1.19,
+        "tp": 232,
+        "sl": 201,
+        "be": 36
+      }
+    },
+    {
+      "key": "block 13:30-14:30|sess 14:30-20:00|RR1.0|sl0.2|TREND",
+      "block_start": "13:30",
+      "rr": 1.0,
+      "sl": 0.2,
+      "mode": "TREND",
+      "m": {
+        "total_r": 29.95,
+        "trades": 469,
+        "win_rate": 55.22,
+        "max_drawdown": -13.54,
+        "profit_factor": 1.2,
+        "tp": 259,
+        "sl": 178,
+        "be": 32
+      }
+    },
+    {
+      "key": "block 13:30-14:30|sess 14:30-20:00|RR2.0|sl0.5|TREND",
+      "block_start": "13:30",
+      "rr": 2.0,
+      "sl": 0.5,
+      "mode": "TREND",
+      "m": {
+        "total_r": 28.62,
+        "trades": 469,
+        "win_rate": 46.06,
+        "max_drawdown": -14.58,
+        "profit_factor": 1.22,
+        "tp": 216,
+        "sl": 210,
+        "be": 43
+      }
+    },
+    {
+      "key": "block 13:30-14:30|sess 14:30-20:00|RR1.5|sl0.1|TREND",
+      "block_start": "13:30",
+      "rr": 1.5,
+      "sl": 0.1,
+      "mode": "TREND",
+      "m": {
+        "total_r": 28.29,
+        "trades": 469,
+        "win_rate": 47.97,
+        "max_drawdown": -17.95,
+        "profit_factor": 1.16,
+        "tp": 225,
+        "sl": 209,
+        "be": 35
+      }
+    },
+    {
+      "key": "block 11:00-14:30|sess 14:30-20:00|RR2.0|sl0.1|TREND",
+      "block_start": "11:00",
+      "rr": 2.0,
+      "sl": 0.1,
+      "mode": "TREND",
+      "m": {
+        "total_r": 28.04,
+        "trades": 454,
+        "win_rate": 42.51,
+        "max_drawdown": -15.3,
+        "profit_factor": 1.16,
+        "tp": 193,
+        "sl": 221,
+        "be": 40
+      }
+    },
+    {
+      "key": "block 12:30-14:30|sess 14:30-20:00|RR0.8|sl0.1|TREND",
+      "block_start": "12:30",
+      "rr": 0.8,
+      "sl": 0.1,
+      "mode": "TREND",
+      "m": {
+        "total_r": 27.65,
+        "trades": 462,
+        "win_rate": 56.06,
+        "max_drawdown": -10.85,
+        "profit_factor": 1.18,
+        "tp": 259,
+        "sl": 176,
+        "be": 27
+      }
+    },
+    {
+      "key": "block 11:00-14:30|sess 14:30-20:00|RR0.8|sl0.2|TREND",
+      "block_start": "11:00",
+      "rr": 0.8,
+      "sl": 0.2,
+      "mode": "TREND",
+      "m": {
+        "total_r": 27.62,
+        "trades": 454,
+        "win_rate": 57.49,
+        "max_drawdown": -10.51,
+        "profit_factor": 1.2,
+        "tp": 261,
+        "sl": 162,
+        "be": 31
+      }
+    },
+    {
+      "key": "block 13:30-14:30|sess 14:30-20:00|RR1.5|sl0.5|TREND",
+      "block_start": "13:30",
+      "rr": 1.5,
+      "sl": 0.5,
+      "mode": "TREND",
+      "m": {
+        "total_r": 27.17,
+        "trades": 469,
+        "win_rate": 49.04,
+        "max_drawdown": -14.58,
+        "profit_factor": 1.21,
+        "tp": 230,
+        "sl": 196,
+        "be": 43
+      }
+    }
+  ],
+  "worst": [
+    {
+      "key": "block 13:30-14:30|sess 14:30-20:00|RR2.0|sl0.1|REVERSE",
+      "block_start": "13:30",
+      "rr": 2.0,
+      "sl": 0.1,
+      "mode": "REVERSE",
+      "m": {
+        "total_r": -36.68,
+        "trades": 469,
+        "win_rate": 38.38,
+        "max_drawdown": -50.48,
+        "profit_factor": 0.82,
+        "tp": 180,
+        "sl": 252,
+        "be": 37
+      }
+    },
+    {
+      "key": "block 13:30-14:30|sess 14:30-20:00|RR1.5|sl0.1|REVERSE",
+      "block_start": "13:30",
+      "rr": 1.5,
+      "sl": 0.1,
+      "mode": "REVERSE",
+      "m": {
+        "total_r": -33.72,
+        "trades": 469,
+        "win_rate": 42.86,
+        "max_drawdown": -47.16,
+        "profit_factor": 0.83,
+        "tp": 201,
+        "sl": 235,
+        "be": 33
+      }
+    },
+    {
+      "key": "block 13:30-14:30|sess 14:30-20:00|RR2.0|sl0.5|REVERSE",
+      "block_start": "13:30",
+      "rr": 2.0,
+      "sl": 0.5,
+      "mode": "REVERSE",
+      "m": {
+        "total_r": -31.18,
+        "trades": 469,
+        "win_rate": 41.36,
+        "max_drawdown": -36.79,
+        "profit_factor": 0.8,
+        "tp": 194,
+        "sl": 234,
+        "be": 41
+      }
+    },
+    {
+      "key": "block 13:30-14:30|sess 14:30-20:00|RR1.0|sl0.1|REVERSE",
+      "block_start": "13:30",
+      "rr": 1.0,
+      "sl": 0.1,
+      "mode": "REVERSE",
+      "m": {
+        "total_r": -30.08,
+        "trades": 469,
+        "win_rate": 48.19,
+        "max_drawdown": -44.04,
+        "profit_factor": 0.84,
+        "tp": 226,
+        "sl": 213,
+        "be": 30
+      }
+    },
+    {
+      "key": "block 13:30-14:30|sess 14:30-20:00|RR1.0|sl0.2|REVERSE",
+      "block_start": "13:30",
+      "rr": 1.0,
+      "sl": 0.2,
+      "mode": "REVERSE",
+      "m": {
+        "total_r": -29.95,
+        "trades": 469,
+        "win_rate": 48.83,
+        "max_drawdown": -44.61,
+        "profit_factor": 0.83,
+        "tp": 229,
+        "sl": 208,
+        "be": 32
+      }
+    },
+    {
+      "key": "block 13:30-14:30|sess 14:30-20:00|RR2.0|sl0.3|REVERSE",
+      "block_start": "13:30",
+      "rr": 2.0,
+      "sl": 0.3,
+      "mode": "REVERSE",
+      "m": {
+        "total_r": -29.75,
+        "trades": 469,
+        "win_rate": 40.51,
+        "max_drawdown": -39.46,
+        "profit_factor": 0.83,
+        "tp": 190,
+        "sl": 241,
+        "be": 38
+      }
+    },
+    {
+      "key": "block 13:30-14:30|sess 14:30-20:00|RR2.0|sl0.2|REVERSE",
+      "block_start": "13:30",
+      "rr": 2.0,
+      "sl": 0.2,
+      "mode": "REVERSE",
+      "m": {
+        "total_r": -29.36,
+        "trades": 469,
+        "win_rate": 39.87,
+        "max_drawdown": -43.78,
+        "profit_factor": 0.84,
+        "tp": 187,
+        "sl": 244,
+        "be": 38
+      }
+    },
+    {
+      "key": "block 11:00-14:30|sess 14:30-20:00|RR0.8|sl0.1|REVERSE",
+      "block_start": "11:00",
+      "rr": 0.8,
+      "sl": 0.1,
+      "mode": "REVERSE",
+      "m": {
+        "total_r": -28.6,
+        "trades": 454,
+        "win_rate": 51.76,
+        "max_drawdown": -48.47,
+        "profit_factor": 0.84,
+        "tp": 235,
+        "sl": 188,
+        "be": 31
+      }
+    },
+    {
+      "key": "block 13:30-14:30|sess 14:30-20:00|RR1.5|sl0.2|REVERSE",
+      "block_start": "13:30",
+      "rr": 1.5,
+      "sl": 0.2,
+      "mode": "REVERSE",
+      "m": {
+        "total_r": -28.36,
+        "trades": 469,
+        "win_rate": 43.28,
+        "max_drawdown": -42.21,
+        "profit_factor": 0.85,
+        "tp": 203,
+        "sl": 231,
+        "be": 35
+      }
+    },
+    {
+      "key": "block 13:30-14:30|sess 14:30-20:00|RR1.5|sl0.3|REVERSE",
+      "block_start": "13:30",
+      "rr": 1.5,
+      "sl": 0.3,
+      "mode": "REVERSE",
+      "m": {
+        "total_r": -27.91,
+        "trades": 469,
+        "win_rate": 43.07,
+        "max_drawdown": -38.72,
+        "profit_factor": 0.84,
+        "tp": 202,
+        "sl": 231,
+        "be": 36
+      }
+    },
+    {
+      "key": "block 11:00-14:30|sess 14:30-20:00|RR2.0|sl0.1|REVERSE",
+      "block_start": "11:00",
+      "rr": 2.0,
+      "sl": 0.1,
+      "mode": "REVERSE",
+      "m": {
+        "total_r": -27.41,
+        "trades": 454,
+        "win_rate": 38.33,
+        "max_drawdown": -50.09,
+        "profit_factor": 0.86,
+        "tp": 174,
+        "sl": 241,
+        "be": 39
+      }
+    },
+    {
+      "key": "block 11:00-14:30|sess 14:30-20:00|RR1.5|sl0.1|REVERSE",
+      "block_start": "11:00",
+      "rr": 1.5,
+      "sl": 0.1,
+      "mode": "REVERSE",
+      "m": {
+        "total_r": -27.27,
+        "trades": 454,
+        "win_rate": 42.07,
+        "max_drawdown": -45.1,
+        "profit_factor": 0.86,
+        "tp": 191,
+        "sl": 226,
+        "be": 37
+      }
+    },
+    {
+      "key": "block 12:30-14:30|sess 14:30-20:00|RR0.8|sl0.1|REVERSE",
+      "block_start": "12:30",
+      "rr": 0.8,
+      "sl": 0.1,
+      "mode": "REVERSE",
+      "m": {
+        "total_r": -26.96,
+        "trades": 462,
+        "win_rate": 52.16,
+        "max_drawdown": -45.33,
+        "profit_factor": 0.85,
+        "tp": 241,
+        "sl": 192,
+        "be": 29
+      }
+    },
+    {
+      "key": "block 11:00-14:30|sess 14:30-20:00|RR2.0|sl0.3|REVERSE",
+      "block_start": "11:00",
+      "rr": 2.0,
+      "sl": 0.3,
+      "mode": "REVERSE",
+      "m": {
+        "total_r": -26.5,
+        "trades": 454,
+        "win_rate": 40.53,
+        "max_drawdown": -38.48,
+        "profit_factor": 0.83,
+        "tp": 184,
+        "sl": 231,
+        "be": 39
+      }
+    },
+    {
+      "key": "block 13:30-14:30|sess 14:30-20:00|RR2.0|sl0.7|REVERSE",
+      "block_start": "13:30",
+      "rr": 2.0,
+      "sl": 0.7,
+      "mode": "REVERSE",
+      "m": {
+        "total_r": -25.64,
+        "trades": 469,
+        "win_rate": 41.79,
+        "max_drawdown": -29.62,
+        "profit_factor": 0.81,
+        "tp": 196,
+        "sl": 227,
+        "be": 46
+      }
+    }
+  ],
+  "inversion_of_worst": {
+    "inv_mode": "TREND",
+    "metrics": {
+      "total_r": 32.51,
+      "trades": 469,
+      "win_rate": 43.92,
+      "max_drawdown": -19.75,
+      "profit_factor": 1.18,
+      "tp": 206,
+      "sl": 225,
+      "be": 38
+    }
+  }
+}

@@ -1,0 +1,211 @@
+//@version=5
+indicator("NQ/ES Transfer Hedge Monitor", overlay=true)
+
+// ============================================================
+// INPUTS
+// ============================================================
+grpSym = "Символы"
+nq_sym = input.symbol("VANTAGE:NAS100USD", "NQ (US100)", group=grpSym)
+es_sym = input.symbol("VANTAGE:SPX500USD", "ES (US500)", group=grpSym)
+vix_sym = input.symbol("TVC:VIX", "VIX", group=grpSym)
+qqq_sym = input.symbol("NASDAQ:QQQ", "QQQ", group=grpSym)
+spy_sym = input.symbol("AMEX:SPY", "SPY", group=grpSym)
+
+grpBeta = "1. Beta Drift"
+en_beta = input.bool(true, "Вкл", group=grpBeta)
+beta_short = input.int(15, "Окно short (мин)", group=grpBeta)
+beta_long = input.int(120, "Окно long (мин)", group=grpBeta)
+beta_warn = input.float(8.0, "Warning (%)", group=grpBeta)
+beta_alert = input.float(12.0, "Alert (%)", group=grpBeta)
+
+grpCorr = "2. Correlation"
+en_corr = input.bool(true, "Вкл", group=grpCorr)
+corr_len = input.int(12, "Окно (баров)", group=grpCorr)
+corr_warn = input.float(0.95, "Warning <", group=grpCorr)
+corr_alert = input.float(0.90, "Alert <", group=grpCorr)
+
+grpSector = "3. Sector Rotation (QQQ/SPY)"
+en_sector = input.bool(true, "Вкл", group=grpSector)
+sector_len = input.int(12, "Окно (баров)", group=grpSector)
+sector_warn = input.float(0.15, "Warning % change", group=grpSector)
+sector_alert = input.float(0.30, "Alert % change", group=grpSector)
+
+grpVix = "4. VIX"
+en_vix = input.bool(true, "Вкл", group=grpVix)
+vix_warn = input.float(18.0, "Warning >", group=grpVix)
+vix_alert = input.float(22.0, "Alert >", group=grpVix)
+vix_spike = input.float(5.0, "Spike % за 15 мин", group=grpVix)
+
+grpTime = "5. Time Windows (UTC)"
+en_time = input.bool(true, "Вкл", group=grpTime)
+w1_start = input.int(3, "Окно 1 старт (час)", minval=0, maxval=23, group=grpTime)
+w1_end = input.int(7, "Окно 1 конец (час)", minval=0, maxval=23, group=grpTime)
+w2_start = input.int(14, "Окно 2 старт (час)", minval=0, maxval=23, group=grpTime)
+w2_end = input.int(19, "Окно 2 конец (час)", minval=0, maxval=23, group=grpTime)
+w_warn_start = input.int(7, "Yellow окно старт", minval=0, maxval=23, group=grpTime)
+w_warn_end = input.int(12, "Yellow окно конец", minval=0, maxval=23, group=grpTime)
+
+grpPos = "Моя позиция"
+my_dir = input.string("Long NQ / Short ES", "Направление", options=["Long NQ / Short ES", "Short NQ / Long ES"], group=grpPos)
+div_len = input.int(12, "Окно расчёта дивергенции (баров)", group=grpPos)
+
+grpVis = "Отображение"
+show_zscore = input.bool(true, "Показать z-score спреда", group=grpVis)
+zscore_len = input.int(50, "Z-score lookback", group=grpVis)
+table_pos = input.string("top_right", "Позиция таблицы", options=["top_right","top_left","bottom_right","bottom_left","middle_right"], group=grpVis)
+
+// ============================================================
+// DATA
+// ============================================================
+nq = request.security(nq_sym, timeframe.period, close)
+es = request.security(es_sym, timeframe.period, close)
+vix = request.security(vix_sym, timeframe.period, close)
+qqq = request.security(qqq_sym, timeframe.period, close)
+spy = request.security(spy_sym, timeframe.period, close)
+
+bars_short = math.max(2, math.round(beta_short / 5))
+bars_long = math.max(bars_short + 1, math.round(beta_long / 5))
+
+// ============================================================
+// 1. BETA DRIFT
+// ============================================================
+nq_r = ta.change(nq) / nq[1]
+es_r = ta.change(es) / es[1]
+
+f_beta(len) =>
+    cov_v = ta.sma(nq_r * es_r, len) - ta.sma(nq_r, len) * ta.sma(es_r, len)
+    var_v = ta.sma(es_r * es_r, len) - math.pow(ta.sma(es_r, len), 2)
+    var_v != 0 ? cov_v / var_v : na
+
+beta_s = f_beta(bars_short)
+beta_l = f_beta(bars_long)
+beta_drift_pct = not na(beta_l) and beta_l != 0 ? math.abs(beta_s - beta_l) / math.abs(beta_l) * 100 : 0.0
+
+beta_status = not en_beta ? 0 : beta_drift_pct >= beta_alert ? 2 : beta_drift_pct >= beta_warn ? 1 : 0
+
+// ============================================================
+// 2. CORRELATION
+// ============================================================
+corr_val = ta.correlation(nq_r, es_r, corr_len)
+corr_status = not en_corr ? 0 : na(corr_val) ? 0 : corr_val < corr_alert ? 2 : corr_val < corr_warn ? 1 : 0
+
+// ============================================================
+// 3. SECTOR ROTATION
+// ============================================================
+ratio = spy != 0 ? qqq / spy : na
+ratio_past = ratio[sector_len]
+ratio_change_pct = not na(ratio_past) and ratio_past != 0 ? math.abs(ratio - ratio_past) / ratio_past * 100 : 0.0
+
+sector_status = not en_sector ? 0 : ratio_change_pct >= sector_alert ? 2 : ratio_change_pct >= sector_warn ? 1 : 0
+
+// ============================================================
+// 4. VIX
+// ============================================================
+vix_past = vix[3]
+vix_spike_pct = not na(vix_past) and vix_past != 0 ? (vix - vix_past) / vix_past * 100 : 0.0
+
+vix_level_status = vix > vix_alert ? 2 : vix > vix_warn ? 1 : 0
+vix_spike_status = vix_spike_pct > vix_spike ? 2 : vix_spike_pct > vix_spike / 2 ? 1 : 0
+vix_status = not en_vix ? 0 : math.max(vix_level_status, vix_spike_status)
+
+// ============================================================
+// 5. TIME WINDOW (UTC)
+// ============================================================
+h_utc = hour(time, "UTC")
+in_w1 = h_utc >= w1_start and h_utc < w1_end
+in_w2 = h_utc >= w2_start and h_utc < w2_end
+in_warn = h_utc >= w_warn_start and h_utc < w_warn_end
+
+time_status = not en_time ? 0 : (in_w1 or in_w2) ? 0 : in_warn ? 1 : 2
+
+// ============================================================
+// OVERALL STATUS
+// ============================================================
+worst = math.max(beta_status, corr_status, sector_status, vix_status, time_status)
+overall_text = worst == 0 ? "🟢 GO" : worst == 1 ? "🟡 WAIT" : "🔴 NO"
+overall_color = worst == 0 ? color.new(color.green, 0) : worst == 1 ? color.new(color.orange, 0) : color.new(color.red, 0)
+
+// ============================================================
+// DIVERGENCE (в пользу позиции или против)
+// ============================================================
+nq_chg = nq[div_len] != 0 ? (nq - nq[div_len]) / nq[div_len] * 100 : 0.0
+es_chg = es[div_len] != 0 ? (es - es[div_len]) / es[div_len] * 100 : 0.0
+// Положительное значение = в пользу. Если long NQ / short ES — выгодно когда NQ растёт сильнее ES.
+divergence = my_dir == "Long NQ / Short ES" ? (nq_chg - es_chg) : (es_chg - nq_chg)
+div_text = (divergence >= 0 ? "В ПЛЮС: +" : "В МИНУС: ") + str.tostring(divergence, "#.##") + "%"
+div_color = divergence >= 0 ? color.new(color.green, 0) : color.new(color.red, 0)
+
+// ============================================================
+// Z-SCORE
+// ============================================================
+beta_use = not na(beta_l) ? beta_l : 4.0
+spread = nq - beta_use * es
+spread_ma = ta.sma(spread, zscore_len)
+spread_sd = ta.stdev(spread, zscore_len)
+zscore = spread_sd != 0 ? (spread - spread_ma) / spread_sd : 0.0
+
+// ============================================================
+// TABLE
+// ============================================================
+tbl_pos = table_pos == "top_right" ? position.top_right : table_pos == "top_left" ? position.top_left : table_pos == "bottom_right" ? position.bottom_right : table_pos == "bottom_left" ? position.bottom_left : position.middle_right
+var table t = table.new(tbl_pos, 3, 9, border_width=1)
+
+f_color(s) => s == 0 ? color.new(color.green, 70) : s == 1 ? color.new(color.orange, 60) : color.new(color.red, 60)
+f_icon(s) => s == 0 ? "🟢" : s == 1 ? "🟡" : "🔴"
+
+if barstate.islast
+    table.cell(t, 0, 0, "NQ/ES TRANSFER", text_color=color.white, bgcolor=color.new(color.gray, 30))
+    table.cell(t, 1, 0, "", bgcolor=color.new(color.gray, 30))
+    table.cell(t, 2, 0, overall_text, text_color=color.white, bgcolor=overall_color)
+
+    table.cell(t, 0, 1, "1. β-drift", text_color=color.white, bgcolor=color.new(color.black, 70))
+    table.cell(t, 1, 1, str.tostring(beta_drift_pct, "#.#") + "%", text_color=color.white, bgcolor=color.new(color.black, 70))
+    table.cell(t, 2, 1, f_icon(beta_status), bgcolor=f_color(beta_status))
+
+    table.cell(t, 0, 2, "2. Corr (1ч)", text_color=color.white, bgcolor=color.new(color.black, 70))
+    table.cell(t, 1, 2, str.tostring(corr_val, "#.##"), text_color=color.white, bgcolor=color.new(color.black, 70))
+    table.cell(t, 2, 2, f_icon(corr_status), bgcolor=f_color(corr_status))
+
+    table.cell(t, 0, 3, "3. Sector QQQ/SPY", text_color=color.white, bgcolor=color.new(color.black, 70))
+    table.cell(t, 1, 3, str.tostring(ratio_change_pct, "#.##") + "%", text_color=color.white, bgcolor=color.new(color.black, 70))
+    table.cell(t, 2, 3, f_icon(sector_status), bgcolor=f_color(sector_status))
+
+    table.cell(t, 0, 4, "4. VIX", text_color=color.white, bgcolor=color.new(color.black, 70))
+    table.cell(t, 1, 4, str.tostring(vix, "#.#") + " (" + str.tostring(vix_spike_pct, "+#.#") + "%)", text_color=color.white, bgcolor=color.new(color.black, 70))
+    table.cell(t, 2, 4, f_icon(vix_status), bgcolor=f_color(vix_status))
+
+    table.cell(t, 0, 5, "5. Time UTC", text_color=color.white, bgcolor=color.new(color.black, 70))
+    table.cell(t, 1, 5, str.tostring(h_utc) + ":00", text_color=color.white, bgcolor=color.new(color.black, 70))
+    table.cell(t, 2, 5, f_icon(time_status), bgcolor=f_color(time_status))
+
+    table.cell(t, 0, 6, "Beta now", text_color=color.gray, bgcolor=color.new(color.black, 80), text_size=size.small)
+    table.cell(t, 1, 6, str.tostring(beta_use, "#.##"), text_color=color.gray, bgcolor=color.new(color.black, 80), text_size=size.small)
+    table.cell(t, 2, 6, "", bgcolor=color.new(color.black, 80))
+
+    table.cell(t, 0, 7, "Z-score", text_color=color.gray, bgcolor=color.new(color.black, 80), text_size=size.small)
+    table.cell(t, 1, 7, str.tostring(zscore, "#.##"), text_color=color.gray, bgcolor=color.new(color.black, 80), text_size=size.small)
+    table.cell(t, 2, 7, "", bgcolor=color.new(color.black, 80))
+
+    table.cell(t, 0, 8, "Дивергенция", text_color=color.white, bgcolor=div_color)
+    table.cell(t, 1, 8, div_text, text_color=color.white, bgcolor=div_color)
+    table.cell(t, 2, 8, "", bgcolor=div_color)
+
+// ============================================================
+// ALERTS
+// ============================================================
+// В alertcondition нельзя вставлять динамические значения, поэтому два варианта алертов:
+// статические для общего статуса + дивергенция отдельно (плюс/минус переход)
+alertcondition(worst == 0 and worst != worst[1], "🟢 GO", "NQ/ES: GO — все условия выполнены, можно входить")
+alertcondition(worst == 1 and worst != worst[1], "🟡 WAIT", "NQ/ES: WAIT — повышенный риск, осторожно")
+alertcondition(worst == 2 and worst != worst[1], "🔴 NO", "NQ/ES: NO — не входить / закрыть позицию, проверь PnL!")
+
+alertcondition(beta_status == 2 and beta_status != beta_status[1], "Beta Alert", "β-drift критический — хедж ломается, проверь PnL")
+alertcondition(corr_status == 2 and corr_status != corr_status[1], "Corr Alert", "Корреляция NQ/ES упала — проверь PnL")
+alertcondition(sector_status == 2 and sector_status != sector_status[1], "Sector Alert", "Sector rotation активна — проверь PnL")
+alertcondition(vix_status == 2 and vix_status != vix_status[1], "VIX Alert", "VIX скачок — проверь PnL")
+
+// Дивергенция: переход в минус (опасность) и в плюс (бонус)
+div_flip_to_minus = divergence < 0 and divergence[1] >= 0
+div_flip_to_plus = divergence > 0 and divergence[1] <= 0
+alertcondition(div_flip_to_minus, "Дивергенция: В МИНУС", "NQ/ES: дивергенция перешла В МИНУС — позиция теряет, проверь PnL")
+alertcondition(div_flip_to_plus, "Дивергенция: В ПЛЮС", "NQ/ES: дивергенция перешла В ПЛЮС — позиция в прибыли")

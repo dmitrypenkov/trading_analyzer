@@ -28,3 +28,8 @@ exports/
 
 # Temp
 tmp_help/
+
+# Run logs
+*_log.txt
+optimization_log.txt
+reports_log.txt

@@ -42,6 +42,7 @@ DEFAULTS = {
     "session_end": "20:00",
     "from_previous_day": True,
     "use_return_mode": False,
+    "invert_signals": False,
     "trading_days": [0, 1, 2, 3, 4],
     "limit_only_entry": False,
     "min_range_size": 0.0,

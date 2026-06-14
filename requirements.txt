@@ -25,3 +25,6 @@ yfinance>=0.2.30
 
 # ForexFactory HTML parser
 beautifulsoup4>=4.12.0
+
+# spread_model/ (NAS100/SP500 spread prediction)
+scikit-learn>=1.4.0

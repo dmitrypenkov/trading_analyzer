@@ -1,0 +1,273 @@
+//@version=5
+indicator("NQ/ES Spread Monitor v5 CFD", overlay=false, precision=2)
+
+// ============================================================
+// v5 CFD: Z-score + ATR-предикция волатильности + VIX фильтр + стабильность ratio
+//
+// Бэктест (77,270 баров, 2022-2026):
+//   |z| > 2.0: ревертит 98.7% за 4ч
+//   |z| > 2.5: ревертит 99.8% за 4ч
+//   |z| > 3.0: ревертит 100% за 4ч
+//   Beta/Corr/Time НЕ предсказывают PnL — только контекст
+// ============================================================
+
+// ============================================================
+// INPUTS
+// ============================================================
+grpSym = "Символы"
+nq_sym  = input.symbol("VANTAGE:NAS100",  "NQ (US100)",  group=grpSym)
+es_sym  = input.symbol("VANTAGE:SP500",    "ES (US500)", group=grpSym)
+vix_sym = input.symbol("TVC:VIX",     "VIX",         group=grpSym)
+
+grpZ = "Z-score (главный сигнал)"
+zscore_len = input.int(50,     "Lookback (баров)",            group=grpZ)
+z_tp       = input.float(2.0,  "Зона Take Profit >",         group=grpZ)
+z_dd       = input.float(-2.0, "Зона Deep Drawdown <",       group=grpZ)
+z_mom_len  = input.int(4,      "Momentum окно (4 бара = 1ч)", group=grpZ)
+
+grpCalc = "Расчёт Beta/Corr"
+beta_short = input.int(15,  "Beta short (мин)",      group=grpCalc)
+beta_long  = input.int(120, "Beta long (мин)",       group=grpCalc)
+corr_len   = input.int(12,  "Corr окно (баров)",     group=grpCalc)
+sector_len = input.int(12,  "Ratio окно (баров)",    group=grpCalc)
+
+grpPos = "Моя позиция"
+my_dir  = input.string("Long NQ / Short ES", "Направление", options=["Long NQ / Short ES", "Short NQ / Long ES"], group=grpPos)
+div_len = input.int(12, "Окно дивергенции (баров)", group=grpPos)
+
+grpVis = "Отображение"
+show_table = input.bool(true, "Показать таблицу",    group=grpVis)
+table_pos  = input.string("top_right", "Позиция таблицы", options=["top_right","top_left","bottom_right","bottom_left","middle_right"], group=grpVis)
+
+grpATR = "ATR Ratio (лотаж)"
+atr_len = input.int(76, "ATR период (баров)", group=grpATR, tooltip="На M15: 76 = 1 сессия (19ч 01:00-20:00 UTC)")
+
+// ============================================================
+// DATA
+// ============================================================
+nq  = request.security(nq_sym,  timeframe.period, close)
+es  = request.security(es_sym,  timeframe.period, close)
+vix = request.security(vix_sym, timeframe.period, close, ignore_invalid_symbol=true)
+
+nq_atr = request.security(nq_sym, timeframe.period, ta.atr(atr_len))
+es_atr = request.security(es_sym, timeframe.period, ta.atr(atr_len))
+atr_ratio = not na(es_atr) and es_atr != 0 ? nq_atr / es_atr : na
+
+// Volatility regime (кластеризация: высокая вола сегодня → высокая завтра)
+nq_atr_avg = ta.sma(nq_atr, atr_len * 3)
+vol_regime = not na(nq_atr_avg) and nq_atr_avg != 0 ? nq_atr / nq_atr_avg : 1.0
+
+// ATR ratio stability (предупреждение когда sizing неточный)
+atr_ratio_avg = ta.sma(atr_ratio, atr_len * 3)
+atr_ratio_dev = not na(atr_ratio_avg) and atr_ratio_avg != 0 ? (atr_ratio - atr_ratio_avg) / atr_ratio_avg * 100 : 0.0
+
+bars_short = math.max(2, math.round(beta_short / 5))
+bars_long  = math.max(bars_short + 1, math.round(beta_long / 5))
+
+// ============================================================
+// CALCULATIONS
+// ============================================================
+nq_r = ta.change(nq) / nq[1]
+es_r = ta.change(es) / es[1]
+
+f_beta(len) =>
+    cov_v = ta.sma(nq_r * es_r, len) - ta.sma(nq_r, len) * ta.sma(es_r, len)
+    var_v = ta.sma(es_r * es_r, len) - math.pow(ta.sma(es_r, len), 2)
+    var_v != 0 ? cov_v / var_v : na
+
+beta_s = f_beta(bars_short)
+beta_l = f_beta(bars_long)
+beta_drift_pct = not na(beta_l) and beta_l != 0 ? math.abs(beta_s - beta_l) / math.abs(beta_l) * 100 : 0.0
+
+corr_val = ta.correlation(nq_r, es_r, corr_len)
+
+// NQ/ES ratio = основные символы, считаем напрямую
+ratio            = es != 0 ? nq / es : na
+ratio_past       = ratio[sector_len]
+ratio_change_pct = not na(ratio_past) and ratio_past != 0 ? math.abs(ratio - ratio_past) / ratio_past * 100 : 0.0
+
+vix_past      = vix[3]
+vix_spike_pct = not na(vix_past) and vix_past != 0 ? (vix - vix_past) / vix_past * 100 : 0.0
+
+// ============================================================
+// Z-SCORE — PRIMARY SIGNAL
+// ============================================================
+beta_use  = not na(beta_l) ? beta_l : 4.5
+spread    = nq - beta_use * es
+spread_ma = ta.sma(spread, zscore_len)
+spread_sd = ta.stdev(spread, zscore_len)
+zscore    = spread_sd != 0 ? (spread - spread_ma) / spread_sd : 0.0
+
+// Directed: positive = position is winning
+dir_z = my_dir == "Long NQ / Short ES" ? zscore : -zscore
+abs_dz = math.abs(dir_z)
+
+// Momentum
+z_mom = dir_z - dir_z[z_mom_len]
+
+// ============================================================
+// ACTION SIGNAL
+// ============================================================
+action_text = dir_z > 2.5 ? "ФИКСИРУЙ!" : dir_z > z_tp ? "ФИКСИРОВАТЬ" : dir_z > 1.0 ? "ПРОФИТ" : dir_z > -1.0 ? "НЕЙТРАЛЬНО" : dir_z > z_dd ? "ПРОСАДКА" : dir_z > -2.5 ? "DEEP DD" : "DEEP DD!"
+action_color = dir_z > 2.5 ? color.new(#00C853, 0) : dir_z > z_tp ? color.new(#00E676, 0) : dir_z > 1.0 ? color.new(#66BB6A, 10) : dir_z > -1.0 ? color.new(color.gray, 30) : dir_z > z_dd ? color.new(#FF9800, 10) : dir_z > -2.5 ? color.new(#F44336, 10) : color.new(#D32F2F, 0)
+
+// Reversion stats (BACKTESTED on 77k bars)
+rev_text   = abs_dz > 2.5 ? "99.8%" : abs_dz > 2.0 ? "98.7%" : abs_dz > 1.5 ? "95%" : abs_dz > 1.0 ? "89%" : "—"
+rev_detail = abs_dz > 1.0 ? " за 4ч" : ""
+rev_dir    = abs_dz <= 1.0 ? "" : dir_z > 0 ? "↓ к сред." : "↑ к сред."
+
+mom_text = z_mom > 0.3 ? "↗↗" : z_mom > 0.05 ? "↗" : z_mom < -0.3 ? "↘↘" : z_mom < -0.05 ? "↘" : "→"
+
+// Divergence
+nq_chg     = nq[div_len] != 0 ? (nq - nq[div_len]) / nq[div_len] * 100 : 0.0
+es_chg     = es[div_len] != 0 ? (es - es[div_len]) / es[div_len] * 100 : 0.0
+divergence = my_dir == "Long NQ / Short ES" ? (nq_chg - es_chg) : (es_chg - nq_chg)
+div_text   = (divergence >= 0 ? "+" : "") + str.tostring(divergence, "#.##") + "%"
+div_color  = divergence >= 0 ? color.new(color.green, 20) : color.new(color.red, 20)
+
+// Session
+h_utc     = hour(time, "UTC")
+liq_text  = (h_utc >= 3 and h_utc < 7) or (h_utc >= 14 and h_utc < 19) ? "HIGH" : (h_utc >= 7 and h_utc < 12) ? "MED" : "LOW"
+liq_color = liq_text == "HIGH" ? color.white : liq_text == "MED" ? color.new(color.orange, 0) : color.new(color.red, 20)
+
+// ============================================================
+// Z-SCORE PANE (осциллятор — как RSI, видно историю)
+// ============================================================
+
+// Z-score line with zone coloring
+z_line_color = dir_z > 2.5 ? #00C853 : dir_z > z_tp ? #00E676 : dir_z > 1.0 ? #66BB6A : dir_z > -1.0 ? color.gray : dir_z > z_dd ? #FF9800 : dir_z > -2.5 ? #F44336 : #D32F2F
+
+p_z = plot(dir_z, "Z-score", color=z_line_color, linewidth=2)
+p_0 = plot(0,     "Zero",    color=color.new(color.gray, 50), linewidth=1)
+
+// Fill between z-score and zero (intensity by zone)
+fill_color = dir_z > z_tp   ? color.new(#00C853, 70) :
+             dir_z > 1.0    ? color.new(#66BB6A, 82) :
+             dir_z > 0      ? color.new(color.green, 90) :
+             dir_z > -1.0   ? color.new(color.red, 90) :
+             dir_z > z_dd   ? color.new(#FF9800, 82) :
+                              color.new(#F44336, 70)
+fill(p_z, p_0, color=fill_color)
+
+// TP/DD threshold lines (configurable)
+plot(z_tp, "TP зона", color=color.new(#00E676, 40), linewidth=1)
+plot(z_dd, "DD зона", color=color.new(#F44336, 40), linewidth=1)
+
+// Reference lines (fixed)
+hline(0,    "0",      color=color.new(color.gray, 30),  linestyle=hline.style_solid)
+hline(1,    "+1σ",    color=color.new(color.green, 70),  linestyle=hline.style_dotted)
+hline(-1,   "-1σ",    color=color.new(color.red, 70),    linestyle=hline.style_dotted)
+hline(2.5,  "+2.5σ",  color=color.new(#00C853, 60),     linestyle=hline.style_dotted)
+hline(-2.5, "-2.5σ",  color=color.new(#D32F2F, 60),     linestyle=hline.style_dotted)
+
+// Background glow for extreme zones
+bgcolor(dir_z > z_tp ? color.new(#00E676, 92) : dir_z < z_dd ? color.new(#F44336, 92) : na)
+
+// ============================================================
+// TABLE (на ценовом графике через force_overlay)
+// ============================================================
+tbl_pos_v = table_pos == "top_right" ? position.top_right : table_pos == "top_left" ? position.top_left : table_pos == "bottom_right" ? position.bottom_right : table_pos == "bottom_left" ? position.bottom_left : position.middle_right
+
+var table t = table.new(tbl_pos_v, 3, 10, border_width=1, force_overlay=true)
+
+hdr_bg = color.new(color.gray, 30)
+inf_bg = color.new(color.black, 80)
+ctx_bg = color.new(color.black, 75)
+sec_bg = color.new(color.gray, 55)
+z_cell = dir_z > 2.5 ? color.new(#00C853, 10) : dir_z > z_tp ? color.new(#00E676, 20) : dir_z > 1.0 ? color.new(#66BB6A, 40) : dir_z > -1.0 ? color.new(color.gray, 50) : dir_z > z_dd ? color.new(#FF9800, 40) : dir_z > -2.5 ? color.new(#F44336, 30) : color.new(#D32F2F, 10)
+sz_s   = size.small
+sz_t   = size.tiny
+sz_n   = size.normal
+
+if show_table and barstate.islast
+    // Row 0: Title + Action
+    table.cell(t, 0, 0, "NQ/ES SPREAD", text_color=color.white, bgcolor=hdr_bg, text_size=sz_s)
+    table.cell(t, 1, 0, "",              bgcolor=hdr_bg)
+    table.cell(t, 2, 0, action_text,     text_color=color.white, bgcolor=action_color, text_size=sz_n)
+
+    // Row 1: Z-score value + zone color + momentum
+    table.cell(t, 0, 1, "Z-score",                          text_color=color.white, bgcolor=z_cell, text_size=sz_s)
+    table.cell(t, 1, 1, str.tostring(dir_z, "#.##"),        text_color=color.white, bgcolor=z_cell, text_size=sz_n)
+    table.cell(t, 2, 1, mom_text,                           text_color=color.white, bgcolor=z_cell, text_size=sz_s)
+
+    // Row 2: Reversion (backtested)
+    table.cell(t, 0, 2, "Возврат",                          text_color=color.gray, bgcolor=inf_bg, text_size=sz_s)
+    table.cell(t, 1, 2, rev_text + rev_detail,              text_color=abs_dz > 1.5 ? color.white : color.gray, bgcolor=inf_bg, text_size=sz_s)
+    table.cell(t, 2, 2, rev_dir,                            text_color=color.gray, bgcolor=inf_bg, text_size=sz_t)
+
+    // Row 3: Divergence
+    table.cell(t, 0, 3, "Дивергенция",                      text_color=color.white, bgcolor=div_color, text_size=sz_s)
+    table.cell(t, 1, 3, div_text,                            text_color=color.white, bgcolor=div_color, text_size=sz_s)
+    table.cell(t, 2, 3, "",                                  bgcolor=div_color)
+
+    // Row 4: Session
+    table.cell(t, 0, 4, str.tostring(h_utc) + ":00 UTC",   text_color=color.white, bgcolor=inf_bg, text_size=sz_s)
+    table.cell(t, 1, 4, "Ликв: " + liq_text,               text_color=liq_color, bgcolor=inf_bg, text_size=sz_s)
+    table.cell(t, 2, 4, "",                                  bgcolor=inf_bg)
+
+    // Row 5: ATR Ratio (для лотажа) — оранжевый если ratio нестабильный (>15%)
+    atr_bg = math.abs(atr_ratio_dev) > 15 ? color.new(#FF9800, 30) : color.new(#1565C0, 50)
+    atr_txt = not na(atr_ratio) ? str.tostring(atr_ratio, "#.##") : "—"
+    atr_detail = not na(nq_atr) and not na(es_atr) ? "NQ:" + str.tostring(nq_atr, "#.#") + " ES:" + str.tostring(es_atr, "#.#") : ""
+    atr_warn = math.abs(atr_ratio_dev) > 15 ? " !" : ""
+    table.cell(t, 0, 5, "ATR Ratio",        text_color=color.white, bgcolor=atr_bg, text_size=sz_s)
+    table.cell(t, 1, 5, atr_txt + atr_warn, text_color=color.white, bgcolor=atr_bg, text_size=sz_n)
+    table.cell(t, 2, 5, atr_detail,         text_color=color.new(color.white, 30), bgcolor=atr_bg, text_size=sz_t)
+
+    // Row 6: Volatility regime + ATR ratio deviation
+    vol_text = vol_regime > 1.5 ? "ВЫСОКАЯ!" : vol_regime > 1.2 ? "ПОВЫШЕНА" : vol_regime < 0.7 ? "НИЗКАЯ" : "НОРМА"
+    vol_bg = vol_regime > 1.5 ? color.new(#D32F2F, 30) : vol_regime > 1.2 ? color.new(#FF9800, 40) : vol_regime < 0.7 ? color.new(#2196F3, 40) : color.new(#4CAF50, 60)
+    ratio_dev_txt = "Ratio " + (atr_ratio_dev >= 0 ? "+" : "") + str.tostring(atr_ratio_dev, "#.#") + "%"
+    ratio_dev_c = math.abs(atr_ratio_dev) > 15 ? color.new(#FF9800, 0) : color.new(color.white, 30)
+    table.cell(t, 0, 6, "Волатильн.",  text_color=color.white, bgcolor=vol_bg, text_size=sz_s)
+    table.cell(t, 1, 6, vol_text,      text_color=color.white, bgcolor=vol_bg, text_size=sz_s)
+    table.cell(t, 2, 6, ratio_dev_txt, text_color=ratio_dev_c, bgcolor=vol_bg, text_size=sz_t)
+
+    // Row 7: Context separator
+    table.cell(t, 0, 7, "── КОНТЕКСТ ──",                   text_color=color.gray, bgcolor=sec_bg, text_size=sz_t)
+    table.cell(t, 1, 7, "",                                  bgcolor=sec_bg)
+    table.cell(t, 2, 7, "",                                  bgcolor=sec_bg)
+
+    // Row 8: Beta + drift + Correlation
+    table.cell(t, 0, 8, "β " + str.tostring(beta_use, "#.##"), text_color=color.gray, bgcolor=ctx_bg, text_size=sz_s)
+    table.cell(t, 1, 8, "drift " + str.tostring(beta_drift_pct, "#.#") + "%", text_color=color.gray, bgcolor=ctx_bg, text_size=sz_t)
+    table.cell(t, 2, 8, "Corr " + str.tostring(corr_val, "#.##"), text_color=color.gray, bgcolor=ctx_bg, text_size=sz_t)
+
+    // Row 9: VIX (цвет по уровню) + Ratio + Direction
+    dir_short = my_dir == "Long NQ / Short ES" ? "L·NQ / S·ES" : "S·NQ / L·ES"
+    vix_bg = not na(vix) and vix > 35 ? color.new(#D32F2F, 20) : not na(vix) and vix > 25 ? color.new(#FF9800, 30) : not na(vix) and vix > 20 ? color.new(#FFC107, 50) : ctx_bg
+    vix_tc = not na(vix) and vix > 20 ? color.white : color.gray
+    table.cell(t, 0, 9, "VIX " + str.tostring(vix, "#.#"),  text_color=vix_tc, bgcolor=vix_bg, text_size=sz_s)
+    table.cell(t, 1, 9, "Ratio Δ" + str.tostring(ratio_change_pct, "#.##") + "%", text_color=color.gray, bgcolor=vix_bg, text_size=sz_t)
+    table.cell(t, 2, 9, dir_short,                           text_color=color.gray, bgcolor=vix_bg, text_size=sz_t)
+
+// ============================================================
+// ALERTS
+// ============================================================
+tp_cross       = ta.crossover(dir_z, z_tp)
+urgent_tp      = ta.crossover(dir_z, 2.5)
+dd_cross       = ta.crossunder(dir_z, z_dd)
+was_in_dd      = ta.lowest(dir_z, 12) < -1.0
+recovery_cross = ta.crossover(dir_z, 0.0) and was_in_dd
+
+alertcondition(tp_cross,       "Z: Take Profit",  "NQ/ES: z вошёл в зону TP — фиксация прибыли (98.7% откат за 4ч)")
+alertcondition(urgent_tp,      "Z: URGENT TP!",   "NQ/ES: z > 2.5 — ФИКСИРУЙ СЕЙЧАС (99.8% откат за 4ч)")
+alertcondition(dd_cross,       "Z: Deep DD",      "NQ/ES: z вошёл в зону DD — глубокая просадка (98.7% возврат за 4ч)")
+alertcondition(recovery_cross, "Z: Recovery",      "NQ/ES: z вернулся к 0 из просадки — восстановление завершено")
+
+alertcondition(ta.crossover(dir_z, 0.0),  "Z: пересёк 0 ↑", "NQ/ES: z-score пересёк 0 вверх — позиция в плюсе")
+alertcondition(ta.crossunder(dir_z, 0.0), "Z: пересёк 0 ↓", "NQ/ES: z-score пересёк 0 вниз — позиция в минусе")
+
+div_flip_minus = divergence < 0 and divergence[1] >= 0
+div_flip_plus  = divergence > 0 and divergence[1] <= 0
+alertcondition(div_flip_minus, "Дивергенция: В МИНУС", "NQ/ES: дивергенция перешла в минус")
+alertcondition(div_flip_plus,  "Дивергенция: В ПЛЮС",  "NQ/ES: дивергенция перешла в плюс")
+
+// Volatility & sizing alerts
+vol_spike    = vol_regime > 1.5 and vol_regime[1] <= 1.5
+vol_norm     = vol_regime <= 1.2 and vol_regime[1] > 1.2
+ratio_broken = math.abs(atr_ratio_dev) > 15 and math.abs(atr_ratio_dev[1]) <= 15
+
+alertcondition(vol_spike,    "Вола: ВЫСОКАЯ!",        "NQ/ES: волатильность 1.5x выше нормы — расширь стопы или уменьши лоты")
+alertcondition(vol_norm,     "Вола: нормализация",    "NQ/ES: волатильность вернулась к норме")
+alertcondition(ratio_broken, "ATR Ratio: пересчёт!",  "NQ/ES: ATR ratio сместился >15% от среднего — пересчитай лотаж")
